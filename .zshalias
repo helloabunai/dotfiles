@@ -1,0 +1,25 @@
+# General
+alias ll='ls -l'
+alias la='ls -la'
+alias l='ls -CF'
+
+# stufffffff
+alias hconf='nano ~/.config/hypr/hyprland.conf'
+alias hlogout='hyprctl dispatch exit'
+alias refresh='hyprctl reload'
+alias lsd='eza --icons'
+alias pacup='sudo pacman -Rns $(pacman -Qdtq)'
+alias grep='grep --color=auto'
+alias pool='clear && asciiquarium'
+alias f='clear && myfetch -i e -f -c 16 -C "  "'
+alias bye='sudo shutdown -h now'
+alias loop='sudo reboot'
+alias h='dbus-launch Hyprland'
+alias fonts='fc-list -f "%{family}\n"'
+alias tasks='btm'
+alias Docs="cd ~/Documents && nvim"
+alias Settings="cd ~/.config/hypr && nvim"
+alias spot="ncspot"
+alias untar="tar -xf"
+alias n="nvim"
+alias pipes="pipes.sh -p 4 -t 5 -r"
