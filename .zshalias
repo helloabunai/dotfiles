@@ -23,3 +23,4 @@ alias spot="ncspot"
 alias untar="tar -xf"
 alias n="nvim"
 alias pipes="pipes.sh -p 4 -t 5 -r"
+alias gameflag='nano ~/scripts/game_envs.json'

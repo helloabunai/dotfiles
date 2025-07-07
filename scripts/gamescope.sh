@@ -17,12 +17,12 @@ LOGFILE="${HOME}/scripts/debug.log"
 : > "$LOGFILE"
 exec > >(tee -a "$LOGFILE") 2>&1
 log() {
-    echo "SCRIPTLOG::::::: $*"
+    echo -e "\n\nSCRIPTLOG::::::: $*\n\n"
 }
 
 # --- Gamescope flags ---
 ASUS_FLAGS="-W 2560 -H 1440 -r 144" # Asus/PC Monitor
-BRAVIA_FLAGS="-W 3840 -H 2160 -r 120 --hdr-enabled --hdr-itm-enable --hdr-itm-sdr-nits 300 --hdr-sdr-content-nits 300" # Bravia/TV
+BRAVIA_FLAGS="-W 3840 -H 2160 -r 120 --hdr-enabled --hdr-itm-enabled --hdr-itm-sdr-nits 300 --hdr-sdr-content-nits 300" # Bravia/TV
 HYPR_WORKSPACE="" # Target hyprland workspace
 
 # --- Conditional ---
@@ -49,12 +49,13 @@ STEAM_APPID=$(echo "$GAME_LAUNCH_CMD" | grep -oP 'AppId=\K\d+')
 log "Launched SteamAppId: $STEAM_APPID"
 
 if [ -n "$STEAM_APPID" ] && [ -f "$DB_PATH" ]; then
-    RAW_FLAGS=$(jq -r --arg id "$STEAM_APPID" '.[$id]' "$DB_PATH")
-    if [ "$RAW_FLAGS" != "null" ]; then
-        ENV_FLAGS="$RAW_FLAGS"
+    ENV_FLAGS=$(jq -r --arg id "$STEAM_APPID" '.[$id].env // empty' "$DB_PATH")
+    NOTE=$(jq -r --arg id "$STEAM_APPID" '.[$id].note // empty' "$DB_PATH")
+    if [ -n "$ENV_FLAGS" ]; then
         log "Loaded ENV_FLAGS: $ENV_FLAGS"
+        [ -n "$NOTE" ] && log "Note/Parsed game: $NOTE"
     else
-        log "No flags found for Steam AppId=$STEAM_APPID"
+        log "No env flags found for Steam AppId=$STEAM_APPID"
     fi
 else
     log "No Steam AppId/Game DB missing"
