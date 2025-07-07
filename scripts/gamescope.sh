@@ -17,7 +17,7 @@ LOGFILE="${HOME}/scripts/debug.log"
 : > "$LOGFILE"
 exec > >(tee -a "$LOGFILE") 2>&1
 log() {
-    echo -e "\n\nSCRIPTLOG::::::: $*\n\n"
+    echo -e "SCRIPTLOG::::::: $*\n\n"
 }
 
 # --- Gamescope flags ---
@@ -27,18 +27,22 @@ HYPR_WORKSPACE="" # Target hyprland workspace
 
 # --- Conditional ---
 GAMESCOPE_COMMAND=""
+TARGET_ENV=""
 if hyprctl monitors | grep -q "HDMI-A-1"; then
     log "TV/Virtual monitor present. Using TV gamescope flags"
     GAMESCOPE_COMMAND="gamescope mangohud $BRAVIA_FLAGS"
+    TARGET_ENV="tv_env"
     export HYPR_WORKSPACE="6"
 else
     log "Using PC gamescope flags."
     GAMESCOPE_COMMAND="gamescope mangohud $ASUS_FLAGS"
+    TARGET_ENV="pc_env"
     export HYPR_WORKSPACE="4"
 fi
 
 log "Executing: $GAMESCOPE_COMMAND %COMMAND%"
 log "Target: workspace $HYPR_WORKSPACE"
+log "Target: environment $TARGET_ENV"
 
 # --- Steam App ID + Env Flags ---
 ENV_FLAGS=""
@@ -49,13 +53,13 @@ STEAM_APPID=$(echo "$GAME_LAUNCH_CMD" | grep -oP 'AppId=\K\d+')
 log "Launched SteamAppId: $STEAM_APPID"
 
 if [ -n "$STEAM_APPID" ] && [ -f "$DB_PATH" ]; then
-    ENV_FLAGS=$(jq -r --arg id "$STEAM_APPID" '.[$id].env // empty' "$DB_PATH")
+    ENV_FLAGS=$(jq -r --arg id "$STEAM_APPID" --arg key "$TARGET_ENV" '.[$id][$key] // empty' "$DB_PATH")
     NOTE=$(jq -r --arg id "$STEAM_APPID" '.[$id].note // empty' "$DB_PATH")
     if [ -n "$ENV_FLAGS" ]; then
         log "Loaded ENV_FLAGS: $ENV_FLAGS"
         [ -n "$NOTE" ] && log "Note/Parsed game: $NOTE"
     else
-        log "No env flags found for Steam AppId=$STEAM_APPID"
+        log "No env flags found for Steam AppId=$STEAM_APPID and context=$TARGET_ENV"
     fi
 else
     log "No Steam AppId/Game DB missing"

@@ -11,6 +11,9 @@ Some modifications, all specific to my Desktop.
 - Added expanding tray to both sides of waybar
 - Added openVPN and audio toggle
 - Added stuff i forgot!! yeah!!
+- HDR compliant virtual display for sunshine/streaming to TV
+- Gamescope based convenience script for launching games with different settings for Monitor/TV
+- Game specific env vars for same reason as above
 
 <img src="https://github.com/helloabunai/dotfiles/blob/main/images/desk.png" width = "75%">
 
