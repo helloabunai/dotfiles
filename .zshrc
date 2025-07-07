@@ -111,3 +111,8 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 export PATH="/opt/cuda/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/lib/nvidia:$LD_LIBRARY_PATH"
+
+export LANG=en_US.UTF-8
+export LC_TIME=en_GB.UTF-8
+export QT_LOCALE=en_GB
+export PATH=$PATH:/home/alastairm/scripts

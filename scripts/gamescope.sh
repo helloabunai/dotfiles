@@ -1,53 +1,84 @@
 #!/bin/bash
 
 ##
-## Remember to add steam game launch options
+## Simple Gamescope QOL script with the goal of:
+## 1) Avoiding the need of setting gamescope screen-res arguments in every steam title
+## 2) Avoiding the need to change screen-res gamescope arguments each time i change display (monitor/tv)
+## 3) Getting game-specific (steam appID) required environment flags for stuff e.g. DX11 vs DX12 Proton HDR flags
+## 4) Move the gamescope window to specific hyprland workspaces (monitor = 4, TV = 6)
+## 5) Maximise window upon move
+##
+## Remember to add the script to the launch options one time only
+## Any other args should be set in the script, not launch options
 ## /path/to/gamescope.sh -- %command%
 ##
 
+LOGFILE="${HOME}/scripts/debug.log"
+: > "$LOGFILE"
+exec > >(tee -a "$LOGFILE") 2>&1
+log() {
+    echo "SCRIPTLOG::::::: $*"
+}
+
 # --- Gamescope flags ---
-# Asus/PC Monitor
-ASUS_FLAGS="-W 2560 -H 1440 -r 144 -f -e --mangoapp"
-# Bravia/TV
-BRAVIA_FLAGS="-W 3840 -H 2160 -r 120 --hdr-enabled --hdr-itm-enable --hdr-itm-sdr-nits 300 --hdr-sdr-content-nits 300 -f -e --mangoapp"
-# Target workspace
-HYPR_WORKSPACE=""
+ASUS_FLAGS="-W 2560 -H 1440 -r 144" # Asus/PC Monitor
+BRAVIA_FLAGS="-W 3840 -H 2160 -r 120 --hdr-enabled --hdr-itm-enable --hdr-itm-sdr-nits 300 --hdr-sdr-content-nits 300" # Bravia/TV
+HYPR_WORKSPACE="" # Target hyprland workspace
 
 # --- Conditional ---
 GAMESCOPE_COMMAND=""
 if hyprctl monitors | grep -q "HDMI-A-1"; then
-    echo "TV/Virtual monitor present. Using TV gamescope flags"
-    GAMESCOPE_COMMAND="gamescope $BRAVIA_FLAGS"
+    log "TV/Virtual monitor present. Using TV gamescope flags"
+    GAMESCOPE_COMMAND="gamescope mangohud $BRAVIA_FLAGS"
     export HYPR_WORKSPACE="6"
 else
-    echo "Using PC gamescope flags."
-    GAMESCOPE_COMMAND="gamescope $ASUS_FLAGS"
+    log "Using PC gamescope flags."
+    GAMESCOPE_COMMAND="gamescope mangohud $ASUS_FLAGS"
     export HYPR_WORKSPACE="4"
 fi
 
-echo "Executing: $GAMESCOPE_COMMAND %COMMAND%"
-echo "Target: workspace $HYPR_WORKSPACE"
+log "Executing: $GAMESCOPE_COMMAND %COMMAND%"
+log "Target: workspace $HYPR_WORKSPACE"
+
+# --- Steam App ID + Env Flags ---
+ENV_FLAGS=""
+DB_PATH="$HOME/scripts/game_envs.json"
+GAME_LAUNCH_CMD="$*"
+log "Raw game launch cmd: $GAME_LAUNCH_CMD"
+STEAM_APPID=$(echo "$GAME_LAUNCH_CMD" | grep -oP 'AppId=\K\d+')
+log "Launched SteamAppId: $STEAM_APPID"
+
+if [ -n "$STEAM_APPID" ] && [ -f "$DB_PATH" ]; then
+    RAW_FLAGS=$(jq -r --arg id "$STEAM_APPID" '.[$id]' "$DB_PATH")
+    if [ "$RAW_FLAGS" != "null" ]; then
+        ENV_FLAGS="$RAW_FLAGS"
+        log "Loaded ENV_FLAGS: $ENV_FLAGS"
+    else
+        log "No flags found for Steam AppId=$STEAM_APPID"
+    fi
+else
+    log "No Steam AppId/Game DB missing"
+fi
 
 #################
 ## config done ##
 #################
 
-## Launch game & get window address
-exec $GAMESCOPE_COMMAND "$@" &
+## -- Launch game & get window address --
+env $ENV_FLAGS $GAMESCOPE_COMMAND "$@" &
 GAMESCOPE_PID=$!
-sleep 10
+sleep 8
 GAME_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.class == "gamescope") | .address')
 
-## Move to target
+## -- Move to target --
 if [ -n "$GAME_ADDR" ]; then
     hyprctl dispatch movetoworkspace "$HYPR_WORKSPACE,address:$GAME_ADDR"
-    sleep 2
     hyprctl dispatch fullscreen address:$GAME_ADDR
-    echo "Moved gamescope window to workspace $HYPR_WORKSPACE"
+    log "Moved gamescope window to workspace $HYPR_WORKSPACE"
 else
-    echo "gamescope window not found!"
+    log "gamescope window not found!"
 fi
 
-## focus + wait for game exit
+## -- focus + wait for game exit --
 hyprctl dispatch workspace "$HYPR_WORKSPACE"
 wait $GAMESCOPE_PID
