@@ -3,15 +3,18 @@
 
 # <file system> <dir> <type> <options> <dump> <pass>
 # /dev/nvme1n1p2
-UUID=3e6b1d2f-d30d-4646-bac6-50ebe37e4f4c       /               ext4            rw,relatime     0 1
+UUID=3e6b1d2f-d30d-4646-bac6-50ebe37e4f4c	/         	ext4      	rw,relatime	0 1
 
 # /dev/nvme1n1p1
-UUID=95A7-0333          /boot           vfat            rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro   0 2
+UUID=95A7-0333      	/boot     	vfat      	rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro	0 2
+# /dev/nvme0n1p1
+UUID=e5779b49-0bcd-40d8-bc44-aa530a2aad96	/mnt/nvme	ext4	defaults,noatime,errors=remount-ro,nofail  0  2
 # /dev/sda2
-UUID=44548B42548B35A8   /mnt/storage1   ntfs-3g         uid=1000,gid=1000,errors=remount-ro,defaults,users,noatime,nodiratime,umask=022,nofail 0 2
+UUID=44548B42548B35A8	/mnt/storage1	ntfs-3g		uid=1000,gid=1000,errors=remount-ro,defaults,users,noatime,nodiratime,umask=022,nofail 0 2
 # /dev/sdb1
-UUID=4EAA5418AA53FAC3   /mnt/ssd        ntfs-3g         uid=1000,gid=1000,errors=remount-ro,defaults,users,noatime,nodiratime,umask=022,nofail 0 2
+UUID=4EAA5418AA53FAC3	/mnt/ssd	ntfs-3g		uid=1000,gid=1000,errors=remount-ro,defaults,users,noatime,nodiratime,umask=022,nofail 0 2
 # /dev/sdc2
-UUID=B28691358690FB55   /mnt/storage2   ntfs-3g         uid=1000,gid=1000,errors=remount-ro,defaults,users,noatime,nodiratime,umask=022,nofail 0 2
+UUID=B28691358690FB55	/mnt/storage2	ntfs-3g		uid=1000,gid=1000,errors=remount-ro,defaults,users,noatime,nodiratime,umask=022,nofail 0 2
 # tanaris:/volume1/Plex
-192.168.1.212:/volume1/Plex     /mnt/tanaris    nfs     noauto,x-systemd.automount,_netdev 0 0
+192.168.1.212:/volume1/Plex	/mnt/tanaris	nfs	noauto,x-systemd.automount,_netdev 0 0
+
