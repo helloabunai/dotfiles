@@ -21,8 +21,8 @@ log() {
 }
 
 # --- Gamescope flags ---
-ASUS_FLAGS="-W 2560 -H 1440 -r 144" # Asus/PC Monitor
-BRAVIA_FLAGS="-W 3840 -H 2160 -r 120 --hdr-enabled --hdr-itm-enabled --hdr-itm-sdr-nits 300 --hdr-sdr-content-nits 300" # Bravia/TV
+ASUS_FLAGS="-W 2560 -H 1440 -r 144 -e --force-grab-cursor" # Asus/PC Monitor
+BRAVIA_FLAGS="-W 3840 -H 2160 -r 120 -e --force-grab-cursor --hdr-enabled --hdr-itm-enabled --hdr-itm-sdr-nits 300 --hdr-sdr-content-nits 300" # Bravia/TV
 HYPR_WORKSPACE="" # Target hyprland workspace
 
 # --- Conditional ---
@@ -55,6 +55,7 @@ log "Launched SteamAppId: $STEAM_APPID"
 if [ -n "$STEAM_APPID" ] && [ -f "$DB_PATH" ]; then
     ENV_FLAGS=$(jq -r --arg id "$STEAM_APPID" --arg key "$TARGET_ENV" '.[$id][$key] // empty' "$DB_PATH")
     NOTE=$(jq -r --arg id "$STEAM_APPID" '.[$id].note // empty' "$DB_PATH")
+
     if [ -n "$ENV_FLAGS" ]; then
         log "Loaded ENV_FLAGS: $ENV_FLAGS"
         [ -n "$NOTE" ] && log "Note/Parsed game: $NOTE"
