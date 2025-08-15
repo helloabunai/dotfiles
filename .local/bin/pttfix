@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /usr/bin/push-to-talk /dev/input/by-id/usb-Logitech_USB_Receiver-event-mouse -k BTN_SIDE -n MOUSE9

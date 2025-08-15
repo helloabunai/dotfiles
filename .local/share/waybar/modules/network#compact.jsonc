@@ -1,0 +1,15 @@
+{
+  "network#compact": 
+  {
+    "tooltip": true,
+    "format-wifi": "\uf1eb",
+    "rotate": 0,
+    "format-alt": "\uf1eb",              // simpler wifi icon only
+    "format-linked": "\uf1eb {ifname}",  // just icon + iface, no IP
+    "format-disconnected": "\uf1eb \u2717", // wifi icon + cross for disconnected
+    "format-ethernet": "\uf6ff",          // simple ethernet icon only (plug symbol)
+    "tooltip-format": "Network: <big><b>{essid}</b></big>\nSignal strength: <b>{signaldBm}dBm ({signalStrength}%)</b>\nInterface: <b>{ifname}</b>",
+    "tooltip-format-disconnected": "Disconnected",
+    "interval": 2
+  }
+}

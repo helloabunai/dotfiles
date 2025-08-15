@@ -1,0 +1,2 @@
+export TARGET_CLIENT="deck"
+export TARGET_WKSPC="7"

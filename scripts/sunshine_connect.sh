@@ -1,18 +1,25 @@
-## use already added EDID monitor for sunshine output
-## enable it upon session connect event
+## sunshine_connect.sh
+##
+## Grab env var that will be written by streamclient.sh
+## Enable appropriate virtual monitor
+## Move steam big picture to appropriate workspace
 
-hyprctl keyword monitor HDMI-A-1,3840x2160@120,4000x0,1,bitdepth,10,vrr,2,cm,auto
-echo "Added virtual EDID monitor to compositor..."
+## -- Source variables --
+ENV_FILE="$HOME/.config/scripts/targetdevice"
+[ -f "$ENV_FILE" ] && source "$ENV_FILE"
+echo "Connected from: $TARGET_CLIENT"
+echo "Target workspace: $TARGET_WKSPC"
 
-# If Steam is not running, launch it in Big Picture
+## -- Steam big picture --
 if ! pgrep -x steam > /dev/null; then
+    # Not running, launch
     steam -tenfoot &
 else
-    # If Steam is already running, trigger Big Picture mode
+    # Already running
     xdg-open steam://open/bigpicture &
 fi
 
-# Wait for Steam Big Picture to show up
+## -- Wait for Steam Big Picture to show up --
 timeout=10
 while [[ $timeout -gt 0 ]]; do
     if hyprctl clients | grep -q "Steam Big Picture Mode"; then
@@ -22,14 +29,15 @@ while [[ $timeout -gt 0 ]]; do
     ((timeout--))
 done
 
-# Move to workspace 6 on HDMI-A-1 and fullscreen
+## -- Move to $TARGET_WKSPC on specific virtual monitor, and fullscreen --
 if [[ $timeout -gt 0 ]]; then
     WINADDR=$(hyprctl -j clients | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')
-    hyprctl dispatch movetoworkspace 6,address:$WINADDR
+    echo "Moving Big Picture to workspace $TARGET_WKSPC..."
+    hyprctl dispatch movetoworkspace "$TARGET_WKSPC",address:$WINADDR
     sleep 5
     hyprctl dispatch focuswindow address:$WINADDR
-    sleep 2
-    hyprctl dispatch fullscreen address:$WINADDR
+    sleep 10
+    hyprctl dispatch fullscreen 1 address:$WINADDR
 else
     echo "Big Picture window not found."
     exit 1

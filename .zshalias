@@ -11,7 +11,7 @@ alias lsd='eza --icons'
 alias pacup='sudo pacman -Rns $(pacman -Qdtq)'
 alias grep='grep --color=auto'
 alias pool='clear && asciiquarium'
-alias f='clear && myfetch -i e -f -c 16 -C "  "'
+alias f='clear && myfetch -i e -f -c 16 -C "     "'
 alias bye='sudo shutdown -h now'
 alias loop='sudo reboot'
 alias h='dbus-launch Hyprland'
@@ -24,3 +24,13 @@ alias untar="tar -xf"
 alias n="nvim"
 alias pipes="pipes.sh -p 4 -t 5 -r"
 alias gameflag='nano ~/scripts/game_envs.json'
+alias reshade='RESHADE_ADDON_SUPPORT=1 ~/scripts/reshade-linux.sh'
+
+# servers
+alias cottus="export TERM=xterm && ssh cottus"
+alias tanaris="export TERM=xterm && ssh tanaris"
+alias sundeck="/usr/bin/zsh /home/alastairm/scripts/streamclient.sh deck"
+alias sunshield="/usr/bin/zsh /home/alastairm/scripts/streamclient.sh shield"
+alias controller="cd /home/alastairm/repos/xpadneo && sudo ./update.sh"
+alias rmidle="rm ~/.cache/idle_inhibitor_status"
+alias systemupdate="hyde-shell systemupdate up"

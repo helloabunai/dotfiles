@@ -1,0 +1,12 @@
+p{
+    "custom/openvpn": {
+        "exec": "~/scripts/openvpn.sh",
+        "interval": 3,
+        "format": "{}",
+        "tooltip": true,
+        "tooltip-format":"",
+        "max-length": "100",
+        "on-click": "nmcli connection up client",
+        "on-click-right": "nmcli connection down client"
+    }
+}

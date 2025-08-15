@@ -1,7 +1,7 @@
 main.config_file_version 2
-main.hotkeys_enable_option disable_hotkeys
+main.hotkeys_enable_option enable_hotkeys
 main.joystick_hotkeys_enable_option disable_hotkeys
-main.show_hide_hotkey 0 0
+main.show_hide_hotkey 26 16
 main.software_encoding_warning_shown false
 main.tint_color nvidia
 record.container mp4
@@ -34,7 +34,7 @@ record.show_video_paused_notifications true
 record.show_video_saved_notifications true
 record.start_stop_hotkey 0 0
 replay.container mp4
-replay.record_options.advanced_view false
+replay.record_options.advanced_view true
 replay.record_options.application_audio_invert false
 replay.record_options.audio_codec opus
 replay.record_options.audio_track_item false [add_audio_track]
@@ -60,7 +60,7 @@ replay.restart_replay_on_save false
 replay.save_10_min_hotkey 0 0
 replay.save_1_min_hotkey 0 0
 replay.save_directory /mnt/storage1/DVR/
-replay.save_hotkey 0 0
+replay.save_hotkey 24 17
 replay.save_video_in_game_folder true
 replay.show_replay_saved_notifications true
 replay.show_replay_started_notifications true
@@ -76,11 +76,12 @@ screenshot.image_width 0
 screenshot.record_area_option focused_monitor
 screenshot.record_cursor true
 screenshot.restore_portal_session true
-screenshot.save_directory /mnt/storage2/Pictures/Screenshots/
+screenshot.save_directory /mnt/storage2/Pictures/Screenshots
 screenshot.save_screenshot_in_game_folder false
 screenshot.show_screenshot_saved_notifications true
 screenshot.take_screenshot_hotkey 0 0
 screenshot.take_screenshot_region_hotkey 0 0
+screenshot.take_screenshot_window_hotkey 102 1
 streaming.custom.container flv
 streaming.custom.url 
 streaming.record_options.advanced_view false

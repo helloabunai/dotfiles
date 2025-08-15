@@ -1,0 +1,22 @@
+{
+  "memory": {
+    "states": {
+      "c": 90,
+      "h": 60,
+      "m": 30
+    },
+    "interval": 30,
+
+    // Show percentage instead of GB
+    "format": "\udb83\udf86 {percentage}%",
+    "rotate": 0,
+    "format-m": "\udb83\udf85 {percentage}%",
+    "format-h": "\udb81\udcc5 {percentage}%",
+    "format-c": "\uf421 {percentage}%",
+    "format-alt": "\udb83\udf86 {used}GB",  // Alt-click to see GB if you want
+
+    "max-length": 10,
+    "tooltip": true,
+    "tooltip-format": "\udb83\udf86 Memory usage: {percentage}%\n\ue266 Used: {used:0.2f}GB / {total:0.2f}GB\n\uf85a Available: {avail:0.2f}GB\n\uf233 Swap used: {swapUsed:0.2f}GB"
+  }
+}
