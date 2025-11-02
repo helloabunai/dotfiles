@@ -10,6 +10,12 @@ ENV_FILE="$HOME/.config/scripts/targetdevice"
 echo "Connected from: $TARGET_CLIENT"
 echo "Target workspace: $TARGET_WKSPC"
 
+## -- Exit if target client is Mac --
+if [[ "$TARGET_CLIENT" == "mac" ]]; then
+    echo "Target client is Mac. Exiting script."
+    exit 0
+fi
+
 ## -- Steam big picture --
 if ! pgrep -x steam > /dev/null; then
     # Not running, launch
@@ -40,5 +46,5 @@ if [[ $timeout -gt 0 ]]; then
     hyprctl dispatch fullscreen 1 address:$WINADDR
 else
     echo "Big Picture window not found."
-    exit 1
+    exit 0
 fi

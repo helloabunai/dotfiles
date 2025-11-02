@@ -5,13 +5,15 @@
 ## 1) Avoiding the need of setting gamescope screen-res arguments in every steam title
 ## 2) Avoiding the need to change screen-res gamescope arguments each time i change display (monitor/tv)
 ## 3) Getting game-specific (steam appID) required environment flags for stuff e.g. DX11 vs DX12 Proton HDR flags
-## 4) Move the gamescope window to specific hyprland workspaces (monitor = 4, TV = 6, headless = 7)
+## 4) Move the gamescope window to specific hyprland workspaces (monitor = 4, TV = 6)
 ## 5) Maximise window upon move
 ##
 ## Remember to add the script to the launch options one time only
 ## Any other args should be set in the script, not launch options
 ## /path/to/gamescope.sh -- %command%
 ##
+
+ulimit -c 0 ## ignore gamescope core dump bug
 
 LOGFILE="${HOME}/scripts/debug.log"
 : > "$LOGFILE"
@@ -20,6 +22,12 @@ log() {
     echo -e "SCRIPTLOG::::::: $*\n\n"
 }
 
+## -- Source variables --
+ENV_FILE="$HOME/.config/scripts/targetdevice"
+[ -f "$ENV_FILE" ] && source "$ENV_FILE"
+echo "Connected from: $TARGET_CLIENT"
+echo "Target workspace: $TARGET_WKSPC"
+
 ##
 ## These flags are commented in/out by streamclient.sh i.e. use
 ## - Bravia flags + workspace 6 for nvidia shield
@@ -27,19 +35,25 @@ log() {
 ##
 ## --- Gamescope flags ---
 ASUS_FLAGS="-W 2560 -H 1440 -r 144 -e --force-grab-cursor" # Asus/PC Monitor
-#VIRTUAL_FLAGS="-W 3840 -H 2160 -r 120 -e --force-grab-cursor --hdr-enabled --hdr-itm-enabled --hdr-itm-sdr-nits 800 --hdr-sdr-content-nits 800" # Bravia/TV
-VIRTUAL_FLAGS="-W 1280 -H 800 -r 90 -e --force-grab-cursor --hdr-enabled --hdr-itm-enabled --hdr-itm-sdr-nits 800 --hdr-sdr-content-nits 800" # Steam deck
+VIRTUAL_FLAGS="-W 3840 -H 2160 -r 120 -e --force-grab-cursor --adaptive-sync --hdr-enabled --hdr-debug-force-output" # Bravia/TV
+#VIRTUAL_FLAGS="-W 1280 -H 800 -r 90 -e --force-grab-cursor --adaptive-sync --hdr-enabled" # Steam deck
 HYPR_WORKSPACE="" # Target hyprland workspace
 
 ## --- Conditional ---
 GAMESCOPE_COMMAND=""
 TARGET_ENV=""
 if hyprctl monitors | grep -Eq "HDMI-A-[12]"; then
-    log "TV/Virtual monitor present. Using virtual-monitor gamescope flags"
-    GAMESCOPE_COMMAND="gamemoderun gamescope $VIRTUAL_FLAGS"
-    TARGET_ENV="tv_env"
-    #export HYPR_WORKSPACE="6"
-    export HYPR_WORKSPACE="7"
+    if [[ "$TARGET_CLIENT" == "mac" ]]; then
+        log "HDMI-A-1 present but client is Mac → using ASUS flags"
+        GAMESCOPE_COMMAND="gamemoderun gamescope $ASUS_FLAGS"
+        TARGET_ENV="pc_env"
+        export HYPR_WORKSPACE="4"
+    else
+        log "TV/Virtual monitor present. Using virtual-monitor gamescope flags"
+        GAMESCOPE_COMMAND="gamemoderun gamescope $VIRTUAL_FLAGS"
+        TARGET_ENV="tv_env"
+        export HYPR_WORKSPACE="6"
+    fi
 else
     log "Using PC gamescope flags."
     GAMESCOPE_COMMAND="gamemoderun gamescope $ASUS_FLAGS"
@@ -77,6 +91,23 @@ fi
 ## config done ##
 #################
 
+## --- Discord/wayland PTT fix if on PC ---
+## --- Also change waybar config when fullscreen only on pc ---
+if [ "$TARGET_ENV" = "pc_env" ]; then
+    log "Starting push-to-talk fix"
+    env -u LD_PRELOAD /home/alastairm/.local/bin/pttfix >> /tmp/pttfix.log 2>&1 &
+    PTTFIX_PID=$!
+    log "PTTFIX started with PID $PTTFIX_PID"
+
+    ## --- Change Waybar config to fullscreen mode ---
+    log "Switching Waybar to fullscreen config"
+    chmod +w ~/.config/waybar/config.jsonc
+    cp ~/.config/waybar/config-fullscreen.jsonc ~/.config/waybar/config.jsonc
+    chmod -w ~/.config/waybar/config.jsonc
+    ~/scripts/waybar_refresh.sh
+    log "Waybar switched to fullscreen mode"
+fi
+
 ## -- Launch game & get window address --
 env $ENV_FLAGS $GAMESCOPE_COMMAND "$@" &
 GAMESCOPE_PID=$!
@@ -107,15 +138,6 @@ else
     log "gamescope window not found after $MAX_TRIES attempts!"
 fi
 
-
-## Discord/wayland PTT fix if on PC
-if [ "$TARGET_ENV" = "pc_env" ]; then
-    log "Starting push-to-talk fix"
-    env -u LD_PRELOAD /home/alastairm/.local/bin/pttfix >> /tmp/pttfix.log 2>&1 &
-    PTTFIX_PID=$!
-    log "PTTFIX started with PID $PTTFIX_PID"
-fi
-
 ## -- focus + wait for game exit --
 hyprctl dispatch workspace "$HYPR_WORKSPACE"
 wait $GAMESCOPE_PID
@@ -125,3 +147,11 @@ if [ -n "$PTTFIX_PID" ] && ps -p $PTTFIX_PID > /dev/null 2>&1; then
     log "Killing push-to-talk fix (PID $PTTFIX_PID)"
     kill $PTTFIX_PID
 fi
+
+## --- Restore Waybar config ---
+log "Restoring normal Waybar config"
+chmod +w ~/.config/waybar/config.jsonc
+cp ~/.config/waybar/config-normal.jsonc ~/.config/waybar/config.jsonc
+chmod -w ~/.config/waybar/config.jsonc
+~/scripts/waybar_refresh.sh
+log "Waybar restored to normal config and locked"

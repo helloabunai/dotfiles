@@ -1,10 +1,3 @@
-## use already added EDID monitor for sunshine output
-## disable it upon sunshine session end event
-
-hyprctl keyword monitor HDMI-A-1,disable
-echo "Removed virtual EDID monitor from compositor..."
-
-
 ## sunshine_disconnect.sh
 ##
 ## disable the currently used virtual monitor
@@ -24,5 +17,9 @@ case "$TARGET_CLIENT" in
   deck)
     echo "Disabling monitor: HDMI-A-2 (Steam Deck)"
     hyprctl keyword monitor "HDMI-A-2,disable"
+    ;;
+  mac)
+    echo "Disabling monitor: HDMI-A-1 (Mac)"
+    hyprctl keyword monitor "HDMI-A-1,disable"
     ;;
 esac

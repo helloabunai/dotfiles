@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Usage: ./streamclient deck || ./streamclient shield
+## todo re-write to just export to env file rather than patching with sed
 
 GAMESCOPE_FILE="$HOME/scripts/gamescope.sh"
 ENV_FILE="$HOME/.config/scripts/targetdevice"
@@ -43,7 +44,7 @@ case "$1" in
     echo 'export TARGET_WKSPC="7"' >> "$ENV_FILE"
     # -- virtual monitor 
     echo "Enabling monitor: HDMI-A-2 (Steam Deck)"
-    hyprctl keyword monitor "HDMI-A-2,1280x800@90,4000x0,1,bitdepth,10,cm,wide"
+    hyprctl keyword monitor "HDMI-A-2,1280x800@90,4000x0,1,bitdepth,10,cm,wide,vrr,1"
     # -- sunshine config --
     update_sunshine_config "$SUNSHINE_DIR/sunshine-steamdeck.conf"
     ;;
@@ -62,12 +63,23 @@ case "$1" in
     echo 'export TARGET_WKSPC="6"' >> "$ENV_FILE"
     # -- virtual monitor --
     echo "Enabling monitor: HDMI-A-1 (Shield)"
-    hyprctl keyword monitor "HDMI-A-1,3840x2160@120,4000x0,2,bitdepth,10,cm,wide"
+    hyprctl keyword monitor "HDMI-A-1,3840x2160@120,4000x0,2,bitdepth,10,cm,wide,vrr,1"
     # -- sunshine config --
     update_sunshine_config "$SUNSHINE_DIR/sunshine-shield.conf"
     ;;
+  mac)
+    # -- hyprland workspace not needed for mac --
+    # -- env vars for other scripts --
+    echo "Exporting TARGET_CLIENT=mac..."
+    echo 'export TARGET_CLIENT="mac"' > "$ENV_FILE"
+    echo 'export TARGET_WKSPC="4"' >> "$ENV_FILE"
+    # -- sunshine config --
+    echo "Enabling monitor: HDMI-A-1 (Mac)"
+    hyprctl keyword monitor "HDMI-A-1,3840x2160@120,4000x0,2,bitdepth,10,cm,wide"
+    update_sunshine_config "$SUNSHINE_DIR/sunshine-steamdeck.conf"
+    ;;
   *)
-    echo "Usage: $0 deck|shield"
+    echo "Usage: $0 deck|shield|mac"
     exit 1
     ;;
 esac

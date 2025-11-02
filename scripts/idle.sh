@@ -15,7 +15,9 @@ STATE=$(cat "$STATE_FILE")
 if [[ "$STATE" == "inactive" ]]; then
     # Set state to active
     echo "active" > "$STATE_FILE"
-    
+
+    # === BEGIN DISPLAY LOGIC ===
+
     # Get the active workspace ID on DP-1
     ACTIVE_WS_DP1=$(hyprctl monitors -j | jq -r '.[] | select(.name=="DP-1") | .activeWorkspace.id')
 
