@@ -30,9 +30,8 @@ echo "Target workspace: $TARGET_WKSPC"
 ## --- Environment Flag Definitions ---
 
 # Standard PC Flags (Monitor)
-# PREFER_SDL for controllers to function
-PC_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_PREFER_SDL=1" 
-
+# PREFER_SDL for controllers to function / mouse stuff to stop mouse leaving windowed fullscreen noborder
+PC_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_PREFER_SDL=1 SDL_VIDEO_MOUSE_GRAB=1 WINE_MOUSE_WARP_OVERRIDE=force"
 # TV/HDR Flags
 # need to specify primary monitor else will appear on OS primary not TV.
 TV_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_ENABLE_HDR=1 ENABLE_HDR_WSI=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
