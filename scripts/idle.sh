@@ -2,8 +2,9 @@
 
 STATE_FILE="$HOME/.cache/idle_inhibitor_status"
 TERMINAL="kitty"
-COMMAND="cmatrix"
-WRAPPED_CMD="bash -c 'sleep 0.3; exec cmatrix -bs'"
+COMMAND="unimatrix"
+##WRAPPED_CMD="bash -c 'sleep 0.3; exec cmatrix -bs'"
+WRAPPED_CMD="bash -c 'sleep 0.3; exec unimatrix -b -s 95'"
 
 # Ensure the state file exists
 if [ ! -f "$STATE_FILE" ]; then
