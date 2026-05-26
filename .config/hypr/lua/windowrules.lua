@@ -108,6 +108,11 @@ hl.window_rule({ match = { class = "^(vlc)$" }, float = true })
 hl.window_rule({ match = { class = "^(eog)$" }, float = true })
 hl.window_rule({ match = { class = "^(com.github.unrud.VideoDownloader)$" }, float = true })
 
+-- Screenshot annotation (satty) + nwg-displays - HyDE base had these as
+-- float-only rules; replicated here since the HyDE hyprlang config isn't sourced.
+hl.window_rule({ match = { class = "^(com.gabm.satty)$" }, float = true })
+hl.window_rule({ match = { class = "^(nwg-displays)$" }, float = true })
+
 -- Generic file dialogs / pickers
 hl.window_rule({ match = { title = "^(Open)$" },                    float = true })
 hl.window_rule({ match = { title = "^(Authentication Required)$" }, float = true })
