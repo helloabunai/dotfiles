@@ -36,12 +36,13 @@ hl.config({
     },
 
     misc = {
-        force_default_wallpaper = -1,
-        disable_hyprland_logo   = true,
-        focus_on_activate       = false,
-        middle_click_paste      = false,
-        render_unfocused_fps    = 141,
-        always_follow_on_dnd    = true,
+        force_default_wallpaper      = -1,
+        disable_hyprland_logo        = true,
+        focus_on_activate            = false,
+        middle_click_paste           = false,
+        render_unfocused_fps         = 141,
+        always_follow_on_dnd         = true,
+        initial_workspace_tracking   = 0,
     },
 
     ecosystem = {
