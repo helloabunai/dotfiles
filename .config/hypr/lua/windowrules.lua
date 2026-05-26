@@ -10,9 +10,18 @@ hl.window_rule({ match = { xdg_tag = "proton-game" },   workspace = "6" })
 -- DP-2 (rotated to 1440x2560 portrait) hosts workspace 5 with Steam Friends on
 -- top and Discord on bottom. Kept tiled (not floating) so dwindle reflows them
 -- when waybar's fullscreen-mode bar reserves the top 36px during gaming.
--- Spawn order in autostart guarantees Friends becomes the master (top half).
 hl.window_rule({ match = { class = "steam", title = "Friends List" }, workspace = "5" })
 hl.window_rule({ match = { class = "discord" },                       workspace = "5" })
+
+-- Whenever a Friends List window opens (boot, re-open, after Steam Big Picture
+-- closes, etc.), swap it upward so it always claims the master (top) slot.
+-- If there's nothing above it (Friends is already top), Hyprland just logs
+-- "No window to swap with in that direction" and the bind is a no-op.
+hl.on("window.open", function(w)
+    if w and w.class == "steam" and w.title == "Friends List" then
+        hl.dispatch(hl.dsp.window.swap({ direction = "u", window = "address:" .. w.address }))
+    end
+end)
 hl.window_rule({ match = { class = "steam", initial_title = "^(Steam Big Picture Mode)$" }, workspace = "6", fullscreen = true })
 hl.window_rule({ match = { class = "steam_app_.*" },    workspace = "4" })
 
