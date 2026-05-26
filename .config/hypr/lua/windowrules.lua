@@ -7,11 +7,12 @@ hl.window_rule({ match = { class = "firefox" },         workspace = "1" })
 hl.window_rule({ match = { class = "^([Ss]potify)$" },  workspace = "2" })
 hl.window_rule({ match = { class = "steam" },           workspace = "3" })
 hl.window_rule({ match = { xdg_tag = "proton-game" },   workspace = "6" })
--- Deterministic top/bottom on DP-2 (rotated, 1440x2560 visual):
--- Steam Friends always top, Discord always bottom. `float = true` is required
--- for `move`/`size` to apply.
-hl.window_rule({ match = { class = "steam", title = "Friends List" }, workspace = "5", float = true, move = {0, 0},    size = {1440, 1280} })
-hl.window_rule({ match = { class = "discord" },                       workspace = "5", float = true, move = {0, 1280}, size = {1440, 1280} })
+-- DP-2 (rotated to 1440x2560 portrait) hosts workspace 5 with Steam Friends on
+-- top and Discord on bottom. Kept tiled (not floating) so dwindle reflows them
+-- when waybar's fullscreen-mode bar reserves the top 36px during gaming.
+-- Spawn order in autostart guarantees Friends becomes the master (top half).
+hl.window_rule({ match = { class = "steam", title = "Friends List" }, workspace = "5" })
+hl.window_rule({ match = { class = "discord" },                       workspace = "5" })
 hl.window_rule({ match = { class = "steam", initial_title = "^(Steam Big Picture Mode)$" }, workspace = "6", fullscreen = true })
 hl.window_rule({ match = { class = "steam_app_.*" },    workspace = "4" })
 
