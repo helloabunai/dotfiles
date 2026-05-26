@@ -8,7 +8,7 @@
     "format-linked": "\udb80\ude00 {ifname} (No IP)",
     "format-disconnected": "\udb81\uddaa ",
     "tooltip-format-disconnected": "Disconnected",
-    "format-ethernet": "<span foreground='#eff1f5'>\uf019 {bandwidthDownBytes}</span> <span foreground='#eff1f5'>\uf093 {bandwidthUpBytes}</span>",
+    "format-ethernet": "<span foreground='#DDC7A1'>\uf019 {bandwidthDownBytes}</span> <span foreground='#DDC7A1'>\uf093 {bandwidthUpBytes}</span>",
     "interval": 2
   }
 }

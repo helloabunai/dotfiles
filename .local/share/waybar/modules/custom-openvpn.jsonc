@@ -6,7 +6,7 @@
         "tooltip": true,
         "tooltip-format":"OpenVPN",
         "max-length": "100",
-        "on-click": "nmcli connection up client",
-        "on-click-right": "nmcli connection down client"
+        "on-click": "nmcli connection up Feralhosting",
+        "on-click-right": "nmcli connection down Feralhosting"
     }
 }

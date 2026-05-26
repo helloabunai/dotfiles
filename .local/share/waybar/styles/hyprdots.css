@@ -23,12 +23,13 @@
 /* Base HyDE Styles */
 
 window#waybar {
-    background: @bar-bg;
+    background: rgba(0, 0, 0, 0);
+    margin-bottom: -200px;
+    
 }
 
 /*
  These are groups/islands configs
-
 */
 #leaf,
 #leaf-inverse,
@@ -43,14 +44,11 @@ window#waybar {
 #pill-up,
 #pill-in,
 #pill-out {
-    background-color: @main-bg;
-    border-style: solid;
-    border-color: @main-bg;
+    background-color: rgba(37,49,56,100);
+    border-style: hidden;
+    padding: 20em;
+    border-color: rgba(37,49,56,100);
 }
-
-
-
-
 
 #workspaces button {
     box-shadow: none;
@@ -62,13 +60,13 @@ window#waybar {
     padding-left: 0.3em;
     padding-right: 0.3em;
     margin-right: 0em;
-    color: @main-fg;
+    color: rgba(221,199,161,100);
     animation: ws_normal 20s ease-in-out 1;
 }
 
 #workspaces button.active {
-    background: @wb-act-bg;
-    color: @wb-act-fg;
+    background: rgba(75, 99, 112, 0.8);
+    color: rgba(255, 255, 255, 100);
     margin-left: 0.3em;
     padding-left: 1.2em;
     padding-right: 1.2em;
@@ -78,8 +76,8 @@ window#waybar {
 }
 
 #workspaces button:hover {
-    background: @wb-hvr-bg;
-    color: @wb-hvr-fg;
+    background: @wb-color;
+    color: @wb-color;
     animation: ws_hover 20s ease-in-out 1;
     transition: all 0.3s cubic-bezier(.55, -0.68, .48, 1.682);
 }
@@ -99,8 +97,8 @@ window#waybar {
 }
 
 #taskbar button.active {
-    background: @wb-act-bg;
-    color: @wb-act-color;
+    background: rgba(255,255,255,100);
+    color: rgba(221,199,161,0);
     margin-left: 0.3em;
     padding-left: 1.2em;
     padding-right: 1.2em;
@@ -110,8 +108,8 @@ window#waybar {
 }
 
 #taskbar button:hover {
-    background: @wb-hvr-bg;
-    color: @wb-hvr-color;
+    background: rgba(255,255,255,100);
+    color: rgba(255,255,255,100);
     animation: tb_hover 20s ease-in-out 1;
     transition: all 0.3s cubic-bezier(.55, -0.68, .48, 1.682);
 }
@@ -130,19 +128,19 @@ window#waybar.top .modules-right,
 window#waybar.bottom .modules-left,
 window#waybar.bottom .modules-center,
 window#waybar.bottom .modules-right {
-    padding-left: 0.3em;
-    padding-right: 0.3em;
-    margin-left: 0.3em;
-    margin-right: 0.3em;
+    padding-left: 0em;
+    padding-right: 0em;
+    margin-left: 0em;
+    margin-right: 0em;
 
 }
 
 window#waybar.top label.module,
 window#waybar.bottom label.module {
-    padding-left: 0.2em;
-    padding-right: 0.2em;
-    margin-left: 0.2em;
-    margin-right: 0.2em;
+    padding-left: 0.25em;
+    padding-right: 0.25em;
+    margin-left: 0.25em;
+    margin-right: 0.25em;
 }
 
 window#waybar.left label.module,
@@ -208,36 +206,34 @@ window#waybar.top #pill-down,
 window#waybar.top #pill-up,
 window#waybar.top #pill-in,
 window#waybar.top #pill-out {
-    padding: 0em 1em;
+    padding: 0em 0.5em;
 }
 
 /* ? Dynamic button */
-
 window#waybar.top button,
 window#waybar.bottom button {
-    margin: 0.41em 0.11em;
-    border: 0em;
-    /* padding: 0.1em 0.5em; */
-
+    margin: 0.3em 0.4em;  /* Was 0.21em 0.1em */
+    border: 0.1em;
 }
 
 window#waybar.left button,
 window#waybar.right button {
     margin: 0.11em 0.41em;
-    border: 0em
+    border: 0.1em;
 }
 
 
 tooltip {
     /* all: unset; */
-    background: @main-bg;
+    background: rgba(37,49,56,100);
     color: @main-fg;
-    border-width: 1em;
-    border-color: @main-fg ;
+    border-width: 0;
+    border-color: #DDC7A1;
+    border-radius: 0.3em;
 }
 
 #tray menu * {
-    min-height: 1.6em;
+    min-height: 2em;
 
 }
 

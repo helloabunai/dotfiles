@@ -1,2 +1,7 @@
 #!/bin/bash
-exec /usr/bin/push-to-talk /dev/input/by-id/usb-Logitech_USB_Receiver-event-mouse -k BTN_SIDE -n MOUSE9
+#exec /usr/bin/push-to-talk /dev/input/by-id/usb-Logitech_USB_Receiver-event-mouse -k BTN_SIDE -n MOUSE9
+#exec /usr/bin/push-to-talk /dev/input/by-id/usb-Logitech_USB_Receiver-if02-event-mouse -k BTN_SIDE -n MOUSE9
+#exec /usr/bin/push-to-talk -v /dev/input/event19 -k BTN_SIDE -n MOUSE9
+
+EVENT_PATH=$(grep -l "keyd virtual pointer" /sys/class/input/event*/device/name | awk -F'/' '{print "/dev/input/"$5}')
+exec /usr/bin/push-to-talk $EVENT_PATH -k BTN_SIDE -n MOUSE9

@@ -4,16 +4,16 @@ window#waybar.bottom #pill,
 window#waybar.bottom #pill button,
 window#waybar.top #pill,
 window#waybar.top #pill button {
-    border-radius: 10pt 10pt 10pt 10pt;
-    /* border-width: 0 0.411em; */ /*Causes black on edge*/
+    border-radius: 5pt 5pt 5pt 5pt;
+    border-width: 0 0.411em; /*Causes black on edge*/
 }
 
 window#waybar.left #pill,
 window#waybar.left #pill button,
 window#waybar.right #pill,
 window#waybar.right #pill button {
-    border-radius: 10pt 10pt 10pt 10pt;
-    /* border-width: 0; */ /*Causes black on edge*/
+    border-radius: 5pt 5pt 5pt 5pt;
+    border-width: 0; /*Causes black on edge*/
 }
 
 window#waybar.top #pill,
@@ -25,3 +25,10 @@ window#waybar.left #pill,
 window#waybar.right #pill {
     margin: 1em 0.3em 1em 0.3em;
 }
+
+#pill {
+background-color: rgba(0,43,51,0.3);
+margin: 2px 0 0 0;
+border: 1px solid rgb(251, 0, 0);
+border-radius: 50px 50px;
+} 

@@ -3,7 +3,6 @@
 # Check if the interactive shell option is set
 pokego --no-title -r 1 | fastfetch --logo -
 
-
 #   Overrides 
 # HYDE_ZSH_NO_PLUGINS=1 # Set to 1 to disable loading of oh-my-zsh plugins, useful if you want to use your zsh plugins system 
 #unset HYDE_ZSH_PROMPT # Uncomment to unset/disable loading of prompts from HyDE and let you load your own prompts
@@ -23,6 +22,25 @@ export PATH="/opt/cuda/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/lib/nvidia:$LD_LIBRARY_PATH"
 
 export LANG=en_US.UTF-8
+export LC_ALL=en_GB.UTF-8
 export LC_TIME=en_GB.UTF-8
 export QT_LOCALE=en_GB
-export PATH=$PATH:/home/alastairm/scriptsc
+export PATH=$PATH:/home/alastairm/scripts
+set_brightness() {
+    local brightness="$1"
+    local display="${2:-1}" # Defaults to Display 1 if not specified
+
+    # Validation: Check if brightness is a number
+    if ! [[ "$brightness" =~ ^[0-9]+$ ]]; then
+        echo "Error: Brightness must be a number."
+        return 1
+    fi
+
+    # Validation: Check range 0-100
+    if (( brightness < 0 || brightness > 100 )); then
+        echo "Error: Brightness must be between 0 and 100."
+        return 1
+    fi
+
+    sudo ddcutil setvcp 10 "$brightness" --display "$display"
+}

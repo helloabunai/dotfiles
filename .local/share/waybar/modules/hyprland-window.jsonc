@@ -23,6 +23,6 @@
             "(.*)Spotify Free": "Spotify \udb81\udcc7 ",
             "(.*)Spotify Premiun": "Spotify \udb81\udcc7 "
         },
-        "max-length": 50
+        "max-length": 25
     }
 }

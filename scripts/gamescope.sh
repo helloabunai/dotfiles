@@ -108,32 +108,53 @@ if [ "$TARGET_ENV" = "pc_env" ]; then
     log "Waybar switched to fullscreen mode"
 fi
 
+## -- Detect if running under Lutris --
+if [ -n "$LUTRIS_GAME_UUID" ]; then
+    log "Detected Lutris launch (LUTRIS_GAME_UUID=$LUTRIS_GAME_UUID) → skipping Gamescope"
+    USE_GAMESCOPE=false
+else
+    USE_GAMESCOPE=true
+fi
+
 ## -- Launch game & get window address --
-env $ENV_FLAGS $GAMESCOPE_COMMAND "$@" &
-GAMESCOPE_PID=$!
+if [ "$USE_GAMESCOPE" = true ]; then
+    log "Launching game inside Gamescope..."
+    env $ENV_FLAGS $GAMESCOPE_COMMAND "$@" &
+    GAMESCOPE_PID=$!
 
-GAME_ADDR=""
-MAX_TRIES=5
-WAIT_TIME=1  # start with 1 second delay
+    GAME_ADDR=""
+    MAX_TRIES=5
+    WAIT_TIME=1  # start with 1 second delay
 
-for ((i=1; i<=MAX_TRIES; i++)); do
-    sleep "$WAIT_TIME"
-    GAME_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.class == "gamescope") | .address')
-    if [ -n "$GAME_ADDR" ]; then
-        log "Found gamescope window on attempt $i after ${WAIT_TIME}s wait"
-        break
-    else
-        log "Attempt $i/$MAX_TRIES: gamescope window not found yet (waited ${WAIT_TIME}s)"
-    fi
-    WAIT_TIME=$((WAIT_TIME * 2))  # exponential backoff
-done
+    ## Toggle SBP not exclusive fullscreen
+    STEAMBP_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')
+    hyprctl dispatch fullscreen address:$STEAMBP_ADDR
+
+    for ((i=1; i<=MAX_TRIES; i++)); do
+        sleep "$WAIT_TIME"
+        GAME_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.class == "gamescope") | .address')
+        if [ -n "$GAME_ADDR" ]; then
+            log "Found gamescope window on attempt $i after ${WAIT_TIME}s wait"
+            break
+        else
+            log "Attempt $i/$MAX_TRIES: gamescope window not found yet (waited ${WAIT_TIME}s)"
+        fi
+        WAIT_TIME=$((WAIT_TIME * 2))  # exponential backoff
+    done
+else
+    log "Launching game directly (no Gamescope)..."
+    env $ENV_FLAGS "$@" &
+    GAMESCOPE_PID=$!  # still track PID for wait at end
+fi
 
 ## -- Move to target --
 if [ -n "$GAME_ADDR" ]; then
     hyprctl dispatch movetoworkspace "$HYPR_WORKSPACE,address:$GAME_ADDR"
-    sleep 1
-    hyprctl dispatch fullscreen 1 address:$GAME_ADDR
     log "Moved gamescope window to workspace $HYPR_WORKSPACE"
+    sleep 1.5
+    hyprctl dispatch fullscreen address:$GAME_ADDR
+    log "Made gamescope window fullscreen..."
+    
 else
     log "gamescope window not found after $MAX_TRIES attempts!"
 fi
@@ -155,3 +176,7 @@ cp ~/.config/waybar/config-normal.jsonc ~/.config/waybar/config.jsonc
 chmod -w ~/.config/waybar/config.jsonc
 ~/scripts/waybar_refresh.sh
 log "Waybar restored to normal config and locked"
+
+## -- Restore SBP Fullscreen --
+sleep 3
+hyprctl dispatch fullscreen address:$STEAMBP_ADDR

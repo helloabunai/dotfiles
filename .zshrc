@@ -79,8 +79,7 @@ source $ZSH/oh-my-zsh.sh
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
-export LANG=en_US.UTF-8
-export LC_TIME=fi_FI.UTF-8
+# export LANG=en_US.UTF-8
 
 # Preferred editor for local and remote sessions
 # if [[ -n $SSH_CONNECTION ]]; then
@@ -105,8 +104,6 @@ export LC_TIME=fi_FI.UTF-8
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 [ -f ~/.zshalias ] && source ~/.zshalias
-clear && myfetch -c 8 -C " █" && echo
-[[ $- != *i* ]] && return
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 export PATH="/opt/cuda/bin:$PATH"
