@@ -48,6 +48,9 @@ hl.on("hyprland.start", function()
     -- From userprefs.conf
     hl.exec_cmd("firefox")
     hl.exec_cmd("steam -steamos3")
+    -- Steam doesn't auto-open the Friends List window under -steamos3; trigger
+    -- it via URL handler once the Steam client is up.
+    hl.exec_cmd("sh -c 'sleep 10 && steam steam://open/friends'")
     hl.exec_cmd("spotify")
     hl.exec_cmd("sunshine")
     hl.exec_cmd("tailscale")
