@@ -29,9 +29,10 @@ alias reshade='RESHADE_ADDON_SUPPORT=1 ~/scripts/reshade-linux.sh'
 # servers
 alias cottus="export TERM=xterm && ssh cottus"
 alias tanaris="export TERM=xterm && ssh tanaris"
-alias sundeck="/usr/bin/zsh /home/alastairm/scripts/streamclient.sh deck"
-alias sunshield="/usr/bin/zsh /home/alastairm/scripts/streamclient.sh shield"
-alias sunmac="/usr/bin/zsh /home/alastairm/scripts/streamclient.sh mac"
+alias sundeck="/usr/bin/zsh /home/alastairm/scripts/set_stream_display.sh deck"
+alias sunshield="/usr/bin/zsh /home/alastairm/scripts/set_stream_display.sh shield"
+alias sunmac="/usr/bin/zsh /home/alastairm/scripts/set_stream_display.sh shield"
+alias streamdisplay='cat ~/.config/scripts/streamdisplay'
 alias controller="cd /home/alastairm/repos/xpadneo && sudo ./update.sh"
 alias systemupdate="hyde-shell systemupdate up"
 alias removetv="hyprctl eval 'hl.monitor({ output = \"HDMI-A-1\", disabled = true })'"

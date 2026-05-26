@@ -1,50 +1,71 @@
-## sunshine_connect.sh
-##
-## Grab env var that will be written by streamclient.sh
-## Enable appropriate virtual monitor
-## Move steam big picture to appropriate workspace
+#!/bin/bash
+#
+# sunshine_connect.sh
+#
+# Called by sunshine global_prep_cmd at every client connect. Reads
+# STREAM_DISPLAY (set via set_stream_display.sh) to decide which Hyprland
+# monitor to enable, then moves Steam Big Picture onto its workspace and
+# fullscreens it. Sunshine itself is never restarted -- its cached KMS
+# connector index from boot is what makes HDR/KMS capture stable
+# (see project_gotchas.md::gotcha-sunshine-kms-boot-race).
 
-## -- Source variables --
-ENV_FILE="$HOME/.config/scripts/targetdevice"
-[ -f "$ENV_FILE" ] && source "$ENV_FILE"
-echo "Connected from: $TARGET_CLIENT"
-echo "Target workspace: $TARGET_WKSPC"
+STATE_FILE="$HOME/.config/scripts/streamdisplay"
+STREAM_DISPLAY=$(cat "$STATE_FILE" 2>/dev/null)
 
-## -- Exit if target client is Mac --
-if [[ "$TARGET_CLIENT" == "mac" ]]; then
-    echo "Target client is Mac. Exiting script."
-    exit 0
-fi
+case "$STREAM_DISPLAY" in
+HDMI-A-1)
+  TARGET_WKSPC=6
+  echo "Enabling monitor: HDMI-A-1 (Shield/TV/Mac, HDR)"
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false })'
+  ;;
+HDMI-A-2)
+  TARGET_WKSPC=7
+  echo "Enabling monitor: HDMI-A-2 (Steam Deck)"
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, disabled = false })'
+  ;;
+*)
+  echo "STREAM_DISPLAY not set or invalid ('$STREAM_DISPLAY'). Run set_stream_display.sh."
+  exit 1
+  ;;
+esac
 
-## -- Steam big picture --
-if ! pgrep -x steam > /dev/null; then
-    # Not running, launch
-    steam -tenfoot &
-else
-    # Already running
-    xdg-open steam://open/bigpicture &
-fi
-
-## -- Wait for Steam Big Picture to show up --
-timeout=10
-while [[ $timeout -gt 0 ]]; do
-    if hyprctl clients | grep -q "Steam Big Picture Mode"; then
-        break
-    fi
-    sleep 1
-    ((timeout--))
+# Wait for Hyprland to actually online the monitor before placing windows.
+tries=30
+while [ $tries -gt 0 ]; do
+  if hyprctl -j monitors all | jq -e --arg n "$STREAM_DISPLAY" \
+      '.[] | select(.name == $n and .disabled == false and .width > 0)' >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.2
+  tries=$((tries - 1))
 done
 
-## -- Move to $TARGET_WKSPC on specific virtual monitor, and fullscreen --
-if [[ $timeout -gt 0 ]]; then
-    WINADDR=$(hyprctl -j clients | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')
-    echo "Moving Big Picture to workspace $TARGET_WKSPC..."
-    hyprctl dispatch "hl.dsp.window.move({ workspace = \"$TARGET_WKSPC\", window = \"address:$WINADDR\" })"
-    sleep 5
-    hyprctl dispatch "hl.dsp.focus({ window = \"address:$WINADDR\" })"
-    sleep 10
-    hyprctl dispatch "hl.dsp.window.fullscreen({ mode = \"maximized\", action = \"set\", window = \"address:$WINADDR\" })"
+# Steam Big Picture: launch tenfoot if Steam isn't running, otherwise raise BP.
+if ! pgrep -x steam >/dev/null; then
+  steam -tenfoot &
 else
-    echo "Big Picture window not found."
-    exit 0
+  xdg-open steam://open/bigpicture &
+fi
+
+# Wait for the BP window to appear.
+timeout=10
+while [ $timeout -gt 0 ]; do
+  if hyprctl clients | grep -q "Steam Big Picture Mode"; then
+    break
+  fi
+  sleep 1
+  timeout=$((timeout - 1))
+done
+
+if [ $timeout -gt 0 ]; then
+  WINADDR=$(hyprctl -j clients | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')
+  echo "Moving Big Picture to workspace $TARGET_WKSPC..."
+  hyprctl dispatch "hl.dsp.window.move({ workspace = \"$TARGET_WKSPC\", window = \"address:$WINADDR\" })"
+  sleep 5
+  hyprctl dispatch "hl.dsp.focus({ window = \"address:$WINADDR\" })"
+  sleep 10
+  hyprctl dispatch "hl.dsp.window.fullscreen({ mode = \"fullscreen\", action = \"set\", window = \"address:$WINADDR\" })"
+else
+  echo "Big Picture window not found."
+  exit 0
 fi

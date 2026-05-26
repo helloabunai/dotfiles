@@ -28,31 +28,15 @@ ENV_FILE="$HOME/.config/scripts/targetdevice"
 echo "Connected from: $TARGET_CLIENT"
 echo "Target workspace: $TARGET_WKSPC"
 
-## --- Parse Command Line Arguments ---
-# Default values
-USE_WAYLAND=1
-USE_HDR=1
-
-for arg in "$@"; do
-  case "$arg" in
-    wayland=true)  USE_WAYLAND=1 ;;
-    wayland=false) USE_WAYLAND=0 ;;
-    hdr=true)      USE_HDR=1 ;;
-    hdr=false)     USE_HDR=0 ;;
-  esac
-done
-
-# Force HDR off if Wayland is disabled
-if [ "$USE_WAYLAND" -eq 0 ]; then
-  USE_HDR=0
-fi
-
 ## --- Environment Flag Definitions ---
 # PC Flags (Monitor)
-PC_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
+PC_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
-# TV/HDR Flags
-TV_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_ENABLE_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
+# TV/HDR Flags. DXVK_HDR=1 is what actually enables HDR for native-HDR DX games
+# on Wayland (Sekiro, etc.) -- PROTON_ENABLE_HDR alone isn't enough on
+# Hyprland 0.55+. Harmless for SDR games since DXVK ignores it without an HDR
+# swapchain request.
+TV_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_ENABLE_HDR=1 DXVK_HDR=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
 ## Map each streaming client to the virtual monitor it requires

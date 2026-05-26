@@ -11,9 +11,13 @@ M.userScr    = M.HOME .. "/scripts"
 
 M.mainMod    = "SUPER"
 M.TERMINAL   = "kitty"
-M.BROWSER    = "hyde-launch.sh --fall firefox web-browser"
-M.EXPLORER   = "hyde-launch.sh --fall dolphin file-manager"
-M.EDITOR     = "hyde-launch.sh --fall code-oss text-editor"
+-- hyde-launch.sh lives under scrPath (~/.local/lib/hyde) which is not on PATH,
+-- so reference it by full path. HyDE upstream's hyprlang config relied on
+-- shell-PATH expansion of a profile-supplied entry; under Lua we resolve it
+-- explicitly.
+M.BROWSER    = M.scrPath .. "/hyde-launch.sh --fall firefox web-browser"
+M.EXPLORER   = M.scrPath .. "/hyde-launch.sh --fall dolphin file-manager"
+M.EDITOR     = M.scrPath .. "/hyde-launch.sh --fall code-oss text-editor"
 M.LOCKSCREEN = "hyprlock"
 
 -- moveActiveOrDirection: moves a floating window by (dx, dy); falls back to a
