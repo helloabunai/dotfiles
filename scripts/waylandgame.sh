@@ -13,7 +13,7 @@ LOGFILE="${HOME}/scripts/debug.log"
 
 # pipe + grep output to avoid wayland overlay messages (valve pls fix steam overlay wayland)
 IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales"
-exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee -a "$LOGFILE") 2>&1
+exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee --output-error=exit -a "$LOGFILE") 2>&1
 log() {
   echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] SCRIPTLOG::::::: $*\n"
 }
@@ -28,12 +28,31 @@ ENV_FILE="$HOME/.config/scripts/targetdevice"
 echo "Connected from: $TARGET_CLIENT"
 echo "Target workspace: $TARGET_WKSPC"
 
+## --- Parse Command Line Arguments ---
+# Default values
+USE_WAYLAND=1
+USE_HDR=1
+
+for arg in "$@"; do
+  case "$arg" in
+    wayland=true)  USE_WAYLAND=1 ;;
+    wayland=false) USE_WAYLAND=0 ;;
+    hdr=true)      USE_HDR=1 ;;
+    hdr=false)     USE_HDR=0 ;;
+  esac
+done
+
+# Force HDR off if Wayland is disabled
+if [ "$USE_WAYLAND" -eq 0 ]; then
+  USE_HDR=0
+fi
+
 ## --- Environment Flag Definitions ---
 # PC Flags (Monitor)
-PC_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
+PC_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
 # TV/HDR Flags
-TV_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_ENABLE_HDR=1 ENABLE_HDR_WSI=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
+TV_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_ENABLE_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
 ## Map each streaming client to the virtual monitor it requires
@@ -140,7 +159,7 @@ GAME_PID_WRAPPER=$!
 if [ "$TARGET_ENV" = "tv_env" ]; then
   STEAMBP_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')
   if [ -n "$STEAMBP_ADDR" ]; then
-    hyprctl dispatch fullscreen address:$STEAMBP_ADDR >/dev/null 2>&1
+    hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$STEAMBP_ADDR\" })" >/dev/null 2>&1
   fi
 fi
 
@@ -170,7 +189,7 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
     # 1. Workspace Enforcement
     if [ "$CURRENT_WS" != "$HYPR_WORKSPACE" ]; then
       log "Enforcing: Moving $CURRENT_ADDR to WS $HYPR_WORKSPACE"
-      hyprctl dispatch movetoworkspace "$HYPR_WORKSPACE,address:$CURRENT_ADDR" >/dev/null 2>&1
+      hyprctl dispatch "hl.dsp.window.move({ workspace = \"$HYPR_WORKSPACE\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
       LOG_ONCE=true
       
     elif [ "$LOG_ONCE" = true ]; then
@@ -183,11 +202,11 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
         ACTIVE_WS_DP1=$(hyprctl monitors -j | jq -r '.[] | select(.name=="DP-1") | .activeWorkspace.id')
         
         # Spawn directly to the target workspaces in fullscreen without changing focus
-        hyprctl dispatch exec "[workspace $ACTIVE_WS_DP1 silent; fullscreen] $TERMINAL -e $WRAPPED_CMD"
-        hyprctl dispatch exec "[workspace 5 silent; fullscreen] $TERMINAL -e $WRAPPED_CMD"
-        
+        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL -e $WRAPPED_CMD]], { workspace = \"$ACTIVE_WS_DP1 silent\", fullscreen = true })"
+        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL -e $WRAPPED_CMD]], { workspace = \"5 silent\", fullscreen = true })"
+
         # Ensure we are definitively focused on the game
-        hyprctl dispatch workspace "$HYPR_WORKSPACE"
+        hyprctl dispatch "hl.dsp.focus({ workspace = \"$HYPR_WORKSPACE\" })"
         SCREENSAVER_TRIGGERED="true"
       fi
     fi
@@ -195,7 +214,7 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
     # 3. Fullscreen Enforcement
     if [ "$CURRENT_FS" == "0" ] || [ "$CURRENT_FS" == "false" ]; then
       log "Enforcing: Window detected as Windowed. Toggling fullscreen..."
-      hyprctl dispatch fullscreen address:$CURRENT_ADDR >/dev/null 2>&1
+      hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
     fi
 
   else
@@ -254,7 +273,7 @@ chmod -w ~/.config/waybar/config.jsonc
 if [ "$TARGET_ENV" = "tv_env" ] && [ -n "$STEAMBP_ADDR" ]; then
   log "Restoring steam big picture to exclusive fullscreen..."
   sleep 3
-  hyprctl dispatch fullscreen address:$STEAMBP_ADDR >/dev/null 2>&1
+  hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$STEAMBP_ADDR\" })" >/dev/null 2>&1
 fi
 
 # 4. Fix waybar dock

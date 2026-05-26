@@ -12,15 +12,15 @@ echo "Target workspace: $TARGET_WKSPC"
 case "$TARGET_CLIENT" in
 shield)
   echo "Disabling monitor: HDMI-A-1 (Shield)"
-  hyprctl keyword monitor "HDMI-A-1,disable"
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-1", disabled = true })'
   ;;
 deck)
   echo "Disabling monitor: HDMI-A-2 (Steam Deck)"
-  hyprctl keyword monitor "HDMI-A-2,disable"
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-2", disabled = true })'
   ;;
 mac)
   echo "Disabling monitor: HDMI-A-1 (Mac)"
-  hyprctl keyword monitor "HDMI-A-1,disable"
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-1", disabled = true })'
   ;;
 esac
 
@@ -29,7 +29,7 @@ STEAMBP_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title == "Steam Big Pic
 
 if [ -n "$STEAMBP_ADDR" ]; then
   echo "Closing Steam Big Picture window..."
-  hyprctl dispatch closewindow address:$STEAMBP_ADDR
+  hyprctl dispatch "hl.dsp.window.close({ window = \"address:$STEAMBP_ADDR\" })"
 else
   echo "Steam Big Picture window not found."
 fi

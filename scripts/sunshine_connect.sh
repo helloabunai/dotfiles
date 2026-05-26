@@ -39,11 +39,11 @@ done
 if [[ $timeout -gt 0 ]]; then
     WINADDR=$(hyprctl -j clients | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')
     echo "Moving Big Picture to workspace $TARGET_WKSPC..."
-    hyprctl dispatch movetoworkspace "$TARGET_WKSPC",address:$WINADDR
+    hyprctl dispatch "hl.dsp.window.move({ workspace = \"$TARGET_WKSPC\", window = \"address:$WINADDR\" })"
     sleep 5
-    hyprctl dispatch focuswindow address:$WINADDR
+    hyprctl dispatch "hl.dsp.focus({ window = \"address:$WINADDR\" })"
     sleep 10
-    hyprctl dispatch fullscreen 1 address:$WINADDR
+    hyprctl dispatch "hl.dsp.window.fullscreen({ mode = \"maximized\", action = \"set\", window = \"address:$WINADDR\" })"
 else
     echo "Big Picture window not found."
     exit 0

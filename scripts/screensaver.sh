@@ -46,13 +46,13 @@ case "$1" in
         echo "Starting matrix screensavers..."
         
         # Launch with error logging
-        hyprctl dispatch exec "$TERMINAL --class matrix_screensaver_DP-1 -e bash -c '$CMD 2>>/home/alastairm/matrix_dp1.log || echo \"Exit code: \$?\" >> /home/alastairm/matrix_dp1.log'" &
-        sleep 0.4 
-        hyprctl dispatch fullscreen
+        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL --class matrix_screensaver_DP-1 -e bash -c '$CMD 2>>/home/alastairm/matrix_dp1.log || echo \"Exit code: \$?\" >> /home/alastairm/matrix_dp1.log']])" &
+        sleep 0.4
+        hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\" })"
 
-        hyprctl dispatch exec "$TERMINAL --class matrix_screensaver_DP-2 -e bash -c '$CMD 2>>/home/alastairm/matrix_dp2.log || echo \"Exit code: \$?\" >> /home/alastairm/matrix_dp2.log'" &
-        sleep 0.4  
-        hyprctl dispatch fullscreen
+        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL --class matrix_screensaver_DP-2 -e bash -c '$CMD 2>>/home/alastairm/matrix_dp2.log || echo \"Exit code: \$?\" >> /home/alastairm/matrix_dp2.log']])" &
+        sleep 0.4
+        hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\" })"
         
         sleep 2  # Give terminals more time to stabilize and go fullscreen
         

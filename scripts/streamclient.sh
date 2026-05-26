@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Usage: ./streamclient deck || shield || mac
+# Usage: ./streamclient deck || ./streamclient shield
 ENV_FILE="$HOME/.config/scripts/targetdevice"
 SUNSHINE_DIR="$HOME/.config/sunshine"
 
@@ -32,7 +32,7 @@ deck)
   echo 'export TARGET_WKSPC="7"' >>"$ENV_FILE"
   # -- virtual monitor
   echo "Enabling monitor: HDMI-A-2 (Steam Deck)"
-  hyprctl keyword monitor "HDMI-A-2,1280x800@90,7840x0,1"
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, disabled = false })'
   # -- sunshine config --
   update_sunshine_config "$SUNSHINE_DIR/sunshine-steamdeck.conf"
   ;;
@@ -43,18 +43,19 @@ shield)
   echo 'export TARGET_WKSPC="6"' >>"$ENV_FILE"
   # -- virtual monitor --
   echo "Enabling monitor: HDMI-A-1 (Shield)"
-  hyprctl keyword monitor "HDMI-A-1,3840x2160@120,4000x0,1.5,bitdepth,10,cm,hdr,vrr,1"
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false })'
   # -- sunshine config --
   update_sunshine_config "$SUNSHINE_DIR/sunshine-shield.conf"
   ;;
 mac)
+  # -- hyprland workspace not needed for mac --
   # -- env vars for other scripts --
   echo "Exporting TARGET_CLIENT=mac..."
   echo 'export TARGET_CLIENT="mac"' >"$ENV_FILE"
   echo 'export TARGET_WKSPC="4"' >>"$ENV_FILE"
   # -- sunshine config --
   echo "Enabling monitor: HDMI-A-1 (Mac)"
-  hyprctl keyword monitor "HDMI-A-1,3840x2160@120,4000x0,1.5,bitdepth,10,cm,hdr"
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", disabled = false })'
   update_sunshine_config "$SUNSHINE_DIR/sunshine-steamdeck.conf"
   ;;
 *)
