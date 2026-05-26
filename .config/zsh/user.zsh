@@ -26,6 +26,8 @@ export LC_ALL=en_GB.UTF-8
 export LC_TIME=en_GB.UTF-8
 export QT_LOCALE=en_GB
 export PATH=$PATH:/home/alastairm/scripts
+export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$UID}/ssh-agent.socket"
+
 set_brightness() {
     local brightness="$1"
     local display="${2:-1}" # Defaults to Display 1 if not specified

@@ -18,3 +18,7 @@ hl.env("WLR_NO_HARDWARE_CURSORS",      "1")
 hl.env("WLR_DRM_NO_MODIFIERS",         "1")
 hl.env("QT_QPA_PLATFORMTHEME",         "qt5ct")
 hl.env("GDK_BACKEND",                  "wayland,x11")
+
+-- Point ssh + git at the systemd user ssh-agent.socket (enabled via
+-- `systemctl --user enable --now ssh-agent.socket`).
+hl.env("SSH_AUTH_SOCK",                os.getenv("XDG_RUNTIME_DIR") .. "/ssh-agent.socket")
