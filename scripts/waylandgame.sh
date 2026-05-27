@@ -28,11 +28,33 @@ ENV_FILE="$HOME/.config/scripts/targetdevice"
 echo "Connected from: $TARGET_CLIENT"
 echo "Target workspace: $TARGET_WKSPC"
 
+## --- Parse keyword args (presence = enabled) ---
+## Usage: waylandgame.sh [wayland] [hdr] %command%
+##   wayland present -> PROTON_ENABLE_WAYLAND=1; absent -> 0 (X11/xwayland).
+##     Steam Input gamepad only works under X11 until Steam Input gains Wayland
+##     support, so default OFF and opt in per game.
+##   hdr present -> HDR on, but only meaningful under wayland; forced off when
+##     wayland is absent.
+## Keywords must come before %command%; we shift them out so they are NOT
+## passed on to the game (bare words would otherwise be exec'd as the command).
+USE_WAYLAND=0
+USE_HDR=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    wayland) USE_WAYLAND=1; shift ;;
+    hdr)     USE_HDR=1;     shift ;;
+    *) break ;;
+  esac
+done
+# HDR requires Wayland.
+[ "$USE_WAYLAND" -eq 0 ] && USE_HDR=0
+
 ## --- Environment Flag Definitions ---
 # PC Flags (Monitor)
-PC_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
-# TV (Sony/LG EDID)
-TV_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_ENABLE_HDR=1 DXVK_HDR=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
+PC_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
+
+# TV/HDR Flags (Sony/EDID)
+TV_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
 ## Map each streaming client to the virtual monitor it requires
