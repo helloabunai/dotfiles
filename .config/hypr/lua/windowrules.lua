@@ -24,6 +24,10 @@ hl.on("window.open", function(w)
 end)
 hl.window_rule({ match = { class = "steam", initial_title = "^(Steam Big Picture Mode)$" }, workspace = "6", fullscreen = true })
 hl.window_rule({ match = { class = "steam_app_.*" },    workspace = "4" })
+-- Games launched directly via Steam (no waylandgame.sh wrapper) come up
+-- windowed/floating; fullscreen them on ws 4. Digits-only so steam_app_default
+-- (the Battle.net tray window handled further down) isn't caught.
+hl.window_rule({ match = { class = "^(steam_app_\\d+)$" }, fullscreen = true })
 
 -- Idle inhibit
 hl.window_rule({ match = { class = "^(.*celluloid.*)$|^(.*mpv.*)$|^(.*vlc.*)$" }, idle_inhibit = "fullscreen" })
