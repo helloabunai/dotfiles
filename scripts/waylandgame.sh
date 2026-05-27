@@ -31,11 +31,7 @@ echo "Target workspace: $TARGET_WKSPC"
 ## --- Environment Flag Definitions ---
 # PC Flags (Monitor)
 PC_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
-
-# TV/HDR Flags. DXVK_HDR=1 is what actually enables HDR for native-HDR DX games
-# on Wayland (Sekiro, etc.) -- PROTON_ENABLE_HDR alone isn't enough on
-# Hyprland 0.55+. Harmless for SDR games since DXVK ignores it without an HDR
-# swapchain request.
+# TV (Sony/LG EDID)
 TV_ENV_VARS="PROTON_ENABLE_WAYLAND=1 PROTON_ENABLE_HDR=1 DXVK_HDR=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---

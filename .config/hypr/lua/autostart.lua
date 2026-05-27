@@ -47,13 +47,7 @@ hl.on("hyprland.start", function()
 
     -- From userprefs.conf
     hl.exec_cmd("firefox")
-    -- LD_PRELOAD extest shims X11 XTEST calls to uinput. Wayland has no XTEST,
-    -- so Steam's 2026 controller-as-system-mouse registration fails ("Deck
-    -- Controller PCB Serial# invalid" / uinput creation error) without it.
-    -- 32-bit lib because Steam's controller handling runs in the 32-bit client.
-    -- valvesoftware/steam-for-linux#13185. Only the main client launch needs
-    -- this; later `steam steam://...` calls are IPC to this same process.
-    hl.exec_cmd("LD_PRELOAD=/usr/lib32/libextest.so steam -steamos3")
+    hl.exec_cmd("steam -steamos3")
     -- Steam doesn't auto-open the Friends List window under -steamos3; trigger
     -- it via URL handler once the Steam client is up. Friends MUST arrive on
     -- workspace 5 before Discord so dwindle makes Friends the master (top).
