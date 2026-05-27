@@ -28,6 +28,11 @@ hl.window_rule({ match = { class = "steam_app_.*" },    workspace = "4" })
 -- windowed/floating; fullscreen them on ws 4. Digits-only so steam_app_default
 -- (the Battle.net tray window handled further down) isn't caught.
 hl.window_rule({ match = { class = "^(steam_app_\\d+)$" }, fullscreen = true })
+-- Best-effort: if such a game spawns/respawns a floating surface (e.g. some
+-- titles recreate the window on a mode change), center it instead of letting
+-- it land top-left off-screen. Only fires at map time, so a same-surface
+-- un-fullscreen (quit-to-title on some games) won't be caught.
+hl.window_rule({ match = { class = "^(steam_app_\\d+)$" }, center = true })
 
 -- Idle inhibit
 hl.window_rule({ match = { class = "^(.*celluloid.*)$|^(.*mpv.*)$|^(.*vlc.*)$" }, idle_inhibit = "fullscreen" })
