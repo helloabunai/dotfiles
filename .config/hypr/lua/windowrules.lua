@@ -122,6 +122,7 @@ hl.window_rule({ match = { class = "^(com.github.unrud.VideoDownloader)$" }, flo
 -- floating utility apps (qt5ct, nwg-look, pavucontrol, etc.).
 hl.window_rule({ match = { class = "^(com.gabm.satty)$" }, float = true, opacity = "0.98 override 0.8 override 1.0 override" })
 hl.window_rule({ match = { class = "^(nwg-displays)$" },   float = true, opacity = "0.98 override 0.8 override 1.0 override" })
+hl.window_rule({ match = { class = "^(net.davidotek.pupgui2)$" }, float = true, opacity = "0.98 override 0.8 override 1.0 override" })
 
 -- Generic file dialogs / pickers
 hl.window_rule({ match = { title = "^(Open)$" },                    float = true })
