@@ -120,7 +120,7 @@ hl.window_rule({ match = { class = "^(com.github.unrud.VideoDownloader)$" }, flo
 -- Screenshot annotation (satty) + nwg-displays - HyDE base had these as
 -- float-only rules; replicated here with the same opacity scheme as the other
 -- floating utility apps (qt5ct, nwg-look, pavucontrol, etc.).
-hl.window_rule({ match = { class = "^(com.gabm.satty)$" }, float = true, opacity = "0.98 override 0.8 override 1.0 override" })
+hl.window_rule({ match = { class = "^(com.gabm.satty)$" }, float = true, opacity = "0.98 override 0.8 override 1.0 override", workspace = "5 silent" })
 hl.window_rule({ match = { class = "^(nwg-displays)$" },   float = true, opacity = "0.98 override 0.8 override 1.0 override" })
 hl.window_rule({ match = { class = "^(net.davidotek.pupgui2)$" }, float = true, opacity = "0.98 override 0.8 override 1.0 override" })
 
