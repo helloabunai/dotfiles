@@ -42,6 +42,10 @@ hl.config({
         middle_click_paste           = false,
         render_unfocused_fps         = 141,
         always_follow_on_dnd         = true,
+        -- Waybar starts at boot while HDMI-A-1 + ws 6 still exist (before
+        -- remote_cleanup.sh disables them); with tracking on, child processes
+        -- spawned via waybar on-click inherit that workspace tag and land on
+        -- the now-disabled monitor (pavucontrol invisible, etc.). Disable.
         initial_workspace_tracking   = 0,
     },
 
@@ -56,6 +60,11 @@ hl.config({
 
     cursor = {
         no_hardware_cursors = 1, -- nvidia: keep HW cursors off
+        -- Auto-hide cursor after N seconds of mouse inactivity. Native
+        -- Hyprland mechanism so it doesn't generate synthetic motion events
+        -- that hypridle would mistake for activity; cursor is therefore
+        -- already hidden by the time the screensaver kicks in.
+        inactive_timeout    = 5,
     },
 
     debug = {

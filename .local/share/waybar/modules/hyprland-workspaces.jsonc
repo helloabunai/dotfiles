@@ -4,10 +4,16 @@
         "class": "no-margin-padding",
         "all-outputs": true,
         "active-only": false,
+        // on-click is the upstream "activate" magic; under Hyprland 0.55 Lua
+        // it's broken (legacy `dispatch workspace N` IPC rejected) but waybar
+        // 0.15.0 doesn't expose the clicked workspace name to custom on-click
+        // commands either ({name}/{id}/{value} all pass through literally,
+        // no env vars). Left as "activate" so a future waybar/Hyprland fix
+        // restores click-to-switch automatically. Keybinds (SUPER+N) work.
         "on-click": "activate",
         "disable-scroll": true,
-        "on-scroll-up": "hyprctl dispatch workspace -1",
-        "on-scroll-down": "hyprctl dispatch workspace +1",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r-1\" })'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r+1\" })'",
         "persistent-workspaces": {
 		"DP-1": [1,2,3,4],
 		"DP-2": [5]
