@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=Discord
+StartupWMClass=discord
+Comment=All-in-one voice and text chat for gamers that's free, secure, and works on both your desktop and phone.
+GenericName=Internet Messenger
+# --ozone-platform=x11 forces Discord onto Xwayland despite the global
+# ELECTRON_OZONE_PLATFORM_HINT=wayland set in hypr/lua/env.lua. Required so
+# Discord's PTT keybind UI accepts input and the pttfix libxdo injection
+# pipeline reaches Discord.
+Exec=/usr/bin/discord --ozone-platform=x11
+Icon=discord
+Type=Application
+Categories=Network;InstantMessaging;
+Path=/usr/bin

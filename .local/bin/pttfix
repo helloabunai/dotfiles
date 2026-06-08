@@ -1,7 +1,8 @@
 #!/bin/bash
-#exec /usr/bin/push-to-talk /dev/input/by-id/usb-Logitech_USB_Receiver-event-mouse -k BTN_SIDE -n MOUSE9
-#exec /usr/bin/push-to-talk /dev/input/by-id/usb-Logitech_USB_Receiver-if02-event-mouse -k BTN_SIDE -n MOUSE9
-#exec /usr/bin/push-to-talk -v /dev/input/event19 -k BTN_SIDE -n MOUSE9
-
+# Find the keyd-emitted virtual pointer device dynamically, then read BTN_SIDE
+# (mouse4) from it and emit MOUSE8 via libxdo for Discord PTT (Discord PTT
+# keybind in app settings = Mouse 8). DISPLAY default :0 in case pttfix is
+# launched outside an X-aware shell (e.g. standalone test in Wayland kitty).
+export DISPLAY=${DISPLAY:-:0}
 EVENT_PATH=$(grep -l "keyd virtual pointer" /sys/class/input/event*/device/name | awk -F'/' '{print "/dev/input/"$5}')
-exec /usr/bin/push-to-talk $EVENT_PATH -k BTN_SIDE -n MOUSE9
+exec /usr/bin/push-to-talk "$EVENT_PATH" -k BTN_SIDE -n MOUSE8
