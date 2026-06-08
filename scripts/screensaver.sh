@@ -2,9 +2,9 @@
 
 # Configuration
 TERMINAL="kitty"
-CMD="unimatrix -a -b -s 95" 
+CMD="unimatrix -a -b -s 95"
 LOCK_CMD="hyprlock"
-TOLERANCE=100
+TOLERANCE=50
 POLL_INTERVAL=0.2  # Even slower polling to reduce false positives
 LOG_FILE="/home/alastairm/screensaver.log"
 
@@ -15,17 +15,11 @@ get_cursor_pos() {
     echo "$pos_json" | jq -r '.x,.y'
 }
 
-# Hardcoded keyboard device (PFU Limited HHKB-Hybrid)
-KEYBOARD_DEVICE="/dev/input/event2"
-
-# Check for keyboard input (non-blocking)
-has_keyboard_input() {
-    # Use timeout with dd for non-blocking check of input events
-    if timeout 0.001 dd if="$KEYBOARD_DEVICE" bs=1 count=1 of=/dev/null 2>/dev/null; then
-        return 0  # Keyboard input detected
-    fi
-    return 1  # No input detected
-}
+# Keyboard wake is handled implicitly: unimatrix exits on q/Space (and other
+# specific keys -- not arbitrary keys). When the focused terminal's unimatrix
+# exits, the terminal dies and the main loop's process-count check fires the
+# lock. We can't read /dev/input/event* directly here because Hyprland's
+# libinput holds keyboard devices with an exclusive grab.
 
 # Logging function
 log() {
@@ -41,21 +35,26 @@ case "$1" in
         if pgrep -x "$LOCK_CMD" > /dev/null; then exit 0; fi
         if pgrep -f "matrix_screensaver" > /dev/null; then exit 0; fi
 
-        # Launch matrix screensavers with debug output
         log "Starting matrix screensavers..."
         echo "Starting matrix screensavers..."
-        
-        # Launch with error logging
-        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL --class matrix_screensaver_DP-1 -e bash -c '$CMD 2>>/home/alastairm/matrix_dp1.log || echo \"Exit code: \$?\" >> /home/alastairm/matrix_dp1.log']])" &
-        sleep 0.4
-        hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\" })"
 
-        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL --class matrix_screensaver_DP-2 -e bash -c '$CMD 2>>/home/alastairm/matrix_dp2.log || echo \"Exit code: \$?\" >> /home/alastairm/matrix_dp2.log']])" &
-        sleep 0.4
-        hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\" })"
-        
-        sleep 2  # Give terminals more time to stabilize and go fullscreen
-        
+        # Improvement B: pass `fullscreen = true` directly to exec_cmd so the
+        # spawned kitty windows come up fullscreen without the previous
+        # sleep+toggle dance (which raced on focus). Monitor placement is
+        # handled by class-specific windowrules in lua/windowrules.lua.
+        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL --class matrix_screensaver_DP-1 -e bash -c '$CMD 2>>/home/alastairm/matrix_dp1.log || echo \"Exit code: \$?\" >> /home/alastairm/matrix_dp1.log']], { fullscreen = true })" &
+        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL --class matrix_screensaver_DP-2 -e bash -c '$CMD 2>>/home/alastairm/matrix_dp2.log || echo \"Exit code: \$?\" >> /home/alastairm/matrix_dp2.log']], { fullscreen = true })" &
+
+
+        # Poll for both terminals to come up (typically ~200-500ms) instead
+        # of a fixed 2s sleep -- cuts the dead-time window before the wake
+        # monitoring loop starts running. Bail after 3s as a worst-case.
+        EXPECTED_COUNT=2
+        for _ in $(seq 1 30); do
+            [ "$(pgrep -fc "matrix_screensaver")" -ge "$EXPECTED_COUNT" ] && break
+            sleep 0.1
+        done
+
         # Count initial processes and get PIDs
         initial_count=$(pgrep -fc "matrix_screensaver")
         kitty_pids=$(pgrep -f "matrix_screensaver" | tr '\n' ' ')
@@ -63,47 +62,41 @@ case "$1" in
         log "Matrix screensavers launched, process count: $initial_count"
         log "Kitty PIDs: $kitty_pids"
         log "Unimatrix PIDs: $unimatrix_pids"
-        log "Starting monitoring"
-
-        # Initialize keyboard monitoring
-        if [ -r "$KEYBOARD_DEVICE" ]; then
-            log "Monitoring keyboard device: $KEYBOARD_DEVICE"
-            echo "Keyboard monitoring enabled"
-            KEYBOARD_ENABLED=true
-        else
-            log "WARNING: Cannot read keyboard device $KEYBOARD_DEVICE (check permissions)"
-            echo "WARNING: Keyboard monitoring disabled (no read access)"
-            KEYBOARD_ENABLED=false
-        fi
-
-        # Get initial cursor position with error handling
-        cursor_data=$(get_cursor_pos)        
+        # Capture cursor AFTER spawns settle. Hyprland warps the cursor when
+        # a fullscreen window comes up; capturing pre-spawn (the earlier
+        # "improvement A") made that warp register as user movement and fired
+        # the lock immediately. Capturing post-warp absorbs it into the
+        # baseline. The trade-off is that movement during the (~200-500ms)
+        # spawn window isn't detected -- minor compared to the false-fire
+        # this avoids.
+        cursor_data=$(get_cursor_pos)
         start_x=$(echo "$cursor_data" | sed -n '1p')
         start_y=$(echo "$cursor_data" | sed -n '2p')
-        
+        log "Starting monitoring (cursor baseline post-spawn: $start_x,$start_y)"
+
         echo "Monitoring cursor movement (tolerance: $TOLERANCE px) and keyboard input..."
-        loop_count=0
-        last_process_check=0
 
         # Mouse monitoring loop - runs indefinitely until movement detected
         while true; do
-            # Check if matrix terminals are still running every 10 iterations
-            if [ $((loop_count % 10)) -eq 0 ]; then
-                current_count=$(pgrep -fc "matrix_screensaver")
-                unimatrix_count=$(pgrep -c "unimatrix")
-                
-                if [ "$current_count" -ne "$initial_count" ]; then
-                    log "WARNING: Process count changed from $initial_count to $current_count"
-                    log "Kitty processes: $(pgrep -fa matrix_screensaver)"
-                    log "Unimatrix processes: $(pgrep -fa unimatrix)"
-                fi
-                if [ "$current_count" -eq 0 ]; then
-                    log "CRITICAL: All kitty terminals died! Unimatrix count: $unimatrix_count"
-                    exec $LOCK_CMD --no-fade-in
-                    exit 0
-                fi
+            # Check matrix terminal count EVERY iteration. unimatrix exits on
+            # q/Space, so one terminal dropping below the expected spawn count
+            # IS our keyboard wake signal (we can't read /dev/input/event*
+            # directly because libinput holds the device with an exclusive
+            # grab). EXPECTED_COUNT is hardcoded above to the number of spawns
+            # so early keypresses during the startup window are caught too --
+            # using a dynamic `initial_count` from pgrep would silently lower
+            # the baseline when a terminal dies before stabilization.
+            current_count=$(pgrep -fc "matrix_screensaver")
+            if [ "$current_count" -lt "$EXPECTED_COUNT" ]; then
+                log "Matrix terminal count below expected ($EXPECTED_COUNT, got $current_count), activating lock..."
+                $LOCK_CMD --no-fade-in &
+                sleep 0.3
+                pkill -f "matrix_screensaver" 2>/dev/null
+                pkill -f "unimatrix" 2>/dev/null
+                exit 0
             fi
-            
+
+
             # Get current cursor position
             cursor_data=$(get_cursor_pos)
             if [ $? -ne 0 ]; then
@@ -124,29 +117,17 @@ case "$1" in
             if [ "$dist_sq" -gt "$tol_sq" ]; then
                 log "Mouse movement detected (distance²: $dist_sq > $tol_sq), activating lock..."
                 echo "Mouse movement detected, activating lock..."
-                
-                # Kill matrix screensavers immediately
+
+                # Launch hyprlock FIRST so its layer surface is mapped on top
+                # before the matrix terminals die -- otherwise there's a brief
+                # gap (~100-500ms hyprlock startup) where the desktop flashes.
+                $LOCK_CMD --no-fade-in &
+                sleep 0.3
                 pkill -f "matrix_screensaver" 2>/dev/null
-                
-                # Start lock command directly for fastest response
-                exec $LOCK_CMD --no-fade-in
+                pkill -f "unimatrix" 2>/dev/null
                 exit 0
             fi
             
-            # Check for keyboard input if devices available
-            if [ "$KEYBOARD_ENABLED" = true ] && has_keyboard_input; then
-                log "Keyboard input detected, activating lock..."
-                echo "Keyboard input detected, activating lock..."
-                
-                # Kill matrix screensavers immediately
-                pkill -f "matrix_screensaver" 2>/dev/null
-                
-                # Start lock command directly for fastest response
-                exec $LOCK_CMD --no-fade-in
-                exit 0
-            fi
-            
-            ((loop_count++))
             sleep $POLL_INTERVAL
         done
         ;;
@@ -157,7 +138,8 @@ case "$1" in
         
         # Kill matrix screensavers
         pkill -f "matrix_screensaver" 2>/dev/null
-        
+        pkill -f "unimatrix" 2>/dev/null
+
         # Start lock if not already running
         if ! pgrep -x "$LOCK_CMD" > /dev/null; then
             log "Starting lock screen after stop"

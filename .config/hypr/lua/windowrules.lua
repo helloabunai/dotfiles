@@ -1,4 +1,4 @@
--- ============================================================================
+--- ============================================================================
 -- Window rules + layer rules
 -- ============================================================================
 
@@ -152,7 +152,11 @@ hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^$" }, opac
 hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^$" }, no_focus = true })
 
 -- Screensaver
-hl.window_rule({ match = { class = "^(matrix_screensaver)$" },      fullscreen = true, no_initial_focus = true })
+-- All matrix_screensaver* classes get no_initial_focus so spawning the
+-- fullscreen kitty doesn't steal focus + warp the cursor (which screensaver.sh
+-- would then detect as mouse movement and fire the lock immediately).
+-- Fullscreen itself is now passed by screensaver.sh via exec_cmd options.
+hl.window_rule({ match = { class = "^matrix_screensaver" },         no_initial_focus = true })
 hl.window_rule({ match = { class = "^(matrix_screensaver_DP-1)$" }, monitor = "DP-1" })
 hl.window_rule({ match = { class = "^(matrix_screensaver_DP-2)$" }, monitor = "DP-2" })
 

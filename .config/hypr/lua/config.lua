@@ -65,6 +65,10 @@ hl.config({
         -- that hypridle would mistake for activity; cursor is therefore
         -- already hidden by the time the screensaver kicks in.
         inactive_timeout    = 5,
+        -- Don't warp the cursor on focus/workspace/fullscreen changes.
+        -- Side benefit: screensaver.sh's pre-spawn cursor capture would no
+        -- longer pick up a synthetic warp jump.
+        no_warps            = true,
     },
 
     debug = {
