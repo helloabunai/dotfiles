@@ -27,6 +27,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("blueman-applet")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    hl.exec_cmd("ssh-add " .. HOME .. "/.ssh/github")
     hl.exec_cmd(scrPath .. "/batterynotify.sh")
     hl.exec_cmd("nm-applet --indicator")
     hl.exec_cmd("udiskie --no-automount --smart-tray")
@@ -47,23 +48,14 @@ hl.on("hyprland.start", function()
 
     -- From userprefs.conf
     hl.exec_cmd("firefox")
-    hl.exec_cmd("steam -steamos3")
-    -- Steam doesn't auto-open the Friends List window under -steamos3; trigger
-    -- it via URL handler once the Steam client is up. Friends MUST arrive on
-    -- workspace 5 before Discord so dwindle makes Friends the master (top).
+    hl.exec_cmd("steam")
     hl.exec_cmd("sh -c 'sleep 10 && steam steam://open/friends'")
     hl.exec_cmd("spotify")
     hl.exec_cmd("sunshine")
     hl.exec_cmd("tailscale")
     hl.exec_cmd("xmousepasteblock")
-    -- Discord delayed so Friends List wins the master slot on workspace 5.
-    hl.exec_cmd("sh -c 'sleep 13 && discord'")
-
-    -- /etc/bluetooth/main.conf has AutoEnable=true so BT comes up powered at
-    -- boot, but Steam's first-launch re-exec grabs the HCI briefly and powers
-    -- it down. Re-enable after the boot storm settles.
-    hl.exec_cmd("sh -c 'sleep 20 && bluetoothctl power on'")
-
+    hl.exec_cmd("discord")
+    hl.exec_cmd("sh -c 'sleep 10 && bluetoothctl power on'")
     hl.exec_cmd("rm ~/.cache/idle_inhibitor_status")
     hl.exec_cmd("/usr/bin/bash " .. userScr .. "/nfs_prewarm.sh")
     hl.exec_cmd("xembedsniproxy")
