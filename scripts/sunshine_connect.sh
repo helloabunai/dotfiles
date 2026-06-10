@@ -65,6 +65,19 @@ if [ $timeout -gt 0 ]; then
   hyprctl dispatch "hl.dsp.focus({ window = \"address:$WINADDR\" })"
   sleep 10
   hyprctl dispatch "hl.dsp.window.fullscreen({ mode = \"fullscreen\", action = \"set\", window = \"address:$WINADDR\" })"
+
+  # Cursor warps are globally disabled (cursor:no_warps in lua/config.lua), so
+  # focusing BP above doesn't move the pointer. Manually warp it to the centre
+  # of the stream display so the controller's virtual mouse is already on the
+  # Big Picture window when the remote client takes over. Coords are read
+  # dynamically from the running monitor config.
+  read MX MY MW MH < <(hyprctl -j monitors | jq -r --arg n "$STREAM_DISPLAY" \
+      '.[] | select(.name == $n) | "\(.x) \(.y) \(.width) \(.height)"')
+  if [ -n "$MX" ]; then
+    CX=$((MX + MW / 2))
+    CY=$((MY + MH / 2))
+    hyprctl dispatch "hl.dsp.cursor.move({ x = $CX, y = $CY })"
+  fi
 else
   echo "Big Picture window not found."
   exit 0
