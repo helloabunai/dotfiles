@@ -6,6 +6,7 @@ CMD="unimatrix -a -b -s 95"
 LOCK_CMD="hyprlock"
 TOLERANCE=50
 POLL_INTERVAL=0.2  # Even slower polling to reduce false positives
+GRACE_SECONDS=3    # Input within this window after launch aborts without firing lock
 LOG_FILE="/home/alastairm/screensaver.log"
 
 # Optimized cursor position functions - cache hyprctl output
@@ -72,7 +73,8 @@ case "$1" in
         cursor_data=$(get_cursor_pos)
         start_x=$(echo "$cursor_data" | sed -n '1p')
         start_y=$(echo "$cursor_data" | sed -n '2p')
-        log "Starting monitoring (cursor baseline post-spawn: $start_x,$start_y)"
+        launch_time=$SECONDS
+        log "Starting monitoring (cursor baseline post-spawn: $start_x,$start_y, grace: ${GRACE_SECONDS}s)"
 
         echo "Monitoring cursor movement (tolerance: $TOLERANCE px) and keyboard input..."
 
@@ -88,8 +90,15 @@ case "$1" in
             # the baseline when a terminal dies before stabilization.
             current_count=$(pgrep -fc "matrix_screensaver")
             if [ "$current_count" -lt "$EXPECTED_COUNT" ]; then
+                elapsed=$((SECONDS - launch_time))
+                if [ "$elapsed" -lt "$GRACE_SECONDS" ]; then
+                    log "Keyboard wake within grace (${elapsed}s < ${GRACE_SECONDS}s), aborting without lock"
+                    pkill -f "matrix_screensaver" 2>/dev/null
+                    pkill -f "unimatrix" 2>/dev/null
+                    exit 0
+                fi
                 log "Matrix terminal count below expected ($EXPECTED_COUNT, got $current_count), activating lock..."
-                $LOCK_CMD &
+                $LOCK_CMD --no-fade-in &
                 sleep 0.3
                 pkill -f "matrix_screensaver" 2>/dev/null
                 pkill -f "unimatrix" 2>/dev/null
@@ -115,13 +124,20 @@ case "$1" in
 
             # Mouse moved beyond tolerance - activate lock immediately
             if [ "$dist_sq" -gt "$tol_sq" ]; then
+                elapsed=$((SECONDS - launch_time))
+                if [ "$elapsed" -lt "$GRACE_SECONDS" ]; then
+                    log "Mouse wake within grace (${elapsed}s < ${GRACE_SECONDS}s), aborting without lock"
+                    pkill -f "matrix_screensaver" 2>/dev/null
+                    pkill -f "unimatrix" 2>/dev/null
+                    exit 0
+                fi
                 log "Mouse movement detected (distance²: $dist_sq > $tol_sq), activating lock..."
                 echo "Mouse movement detected, activating lock..."
 
                 # Launch hyprlock FIRST so its layer surface is mapped on top
                 # before the matrix terminals die -- otherwise there's a brief
                 # gap (~100-500ms hyprlock startup) where the desktop flashes.
-                $LOCK_CMD --no-fade-in &
+                $LOCK_CMD &
                 sleep 0.3
                 pkill -f "matrix_screensaver" 2>/dev/null
                 pkill -f "unimatrix" 2>/dev/null
