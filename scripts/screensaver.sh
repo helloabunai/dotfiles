@@ -89,7 +89,7 @@ case "$1" in
             current_count=$(pgrep -fc "matrix_screensaver")
             if [ "$current_count" -lt "$EXPECTED_COUNT" ]; then
                 log "Matrix terminal count below expected ($EXPECTED_COUNT, got $current_count), activating lock..."
-                $LOCK_CMD --no-fade-in &
+                $LOCK_CMD &
                 sleep 0.3
                 pkill -f "matrix_screensaver" 2>/dev/null
                 pkill -f "unimatrix" 2>/dev/null
