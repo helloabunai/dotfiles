@@ -13,16 +13,10 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd --all")
     hl.exec_cmd("systemctl --user import-environment QT_QPA_PLATFORMTHEME WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
 
-    -- Boot waybar in 'normal' layout (DP-1 + HDMI-A-1 only). config.jsonc is
-    -- kept chmod 444 so waybar.py can't restore the HyDE layout default ("*").
-    -- gamescope.sh / waylandgame.sh use the same chmod-+w/cp/-w pattern to swap
-    -- to/from the fullscreen variant; this guards against a partial restore.
     hl.exec_cmd("chmod +w " .. HOME .. "/.config/waybar/config.jsonc 2>/dev/null; "
                 .. "cp -f " .. HOME .. "/.config/waybar/config-normal.jsonc "
                             .. HOME .. "/.config/waybar/config.jsonc; "
-                .. "chmod -w " .. HOME .. "/.config/waybar/config.jsonc; "
-                .. scrPath .. "/waybar.py --watch --update")
-
+                .. "chmod -w " .. HOME .. "/.config/waybar/config.jsonc")
     hl.exec_cmd("dunst")
     hl.exec_cmd("blueman-applet")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
@@ -58,5 +52,4 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("sh -c 'sleep 10 && bluetoothctl power on'")
     hl.exec_cmd("rm ~/.cache/idle_inhibitor_status")
     hl.exec_cmd("/usr/bin/bash " .. userScr .. "/nfs_prewarm.sh")
-    hl.exec_cmd("xembedsniproxy")
 end)

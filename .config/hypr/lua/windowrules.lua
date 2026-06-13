@@ -151,6 +151,9 @@ hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, no_shortcuts_inhibit 
 hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^$" }, opacity  = "0 override" })
 hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^$" }, no_focus = true })
 
+hl.window_rule({ match = { class = "^$", title = "^$" }, opacity  = "0 override" })
+hl.window_rule({ match = { class = "^$", title = "^$" }, no_focus = true })
+
 -- Screensaver
 -- All matrix_screensaver* classes get no_initial_focus so spawning the
 -- fullscreen kitty doesn't steal focus + warp the cursor (which screensaver.sh
