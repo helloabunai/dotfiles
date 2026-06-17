@@ -47,6 +47,7 @@ hl.config({
         -- spawned via waybar on-click inherit that workspace tag and land on
         -- the now-disabled monitor (pavucontrol invisible, etc.). Disable.
         initial_workspace_tracking   = 0,
+        screencopy_force_8b          = false,
     },
 
     ecosystem = {
