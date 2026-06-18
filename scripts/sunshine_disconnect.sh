@@ -10,6 +10,12 @@
 STATE_FILE="$HOME/.config/scripts/streamdisplay"
 STREAM_DISPLAY=$(cat "$STATE_FILE" 2>/dev/null)
 
+# DP-1 (mac desktop stream) has no monitor/Big Picture prep to undo.
+if [ "$STREAM_DISPLAY" = "DP-1" ]; then
+  echo "STREAM_DISPLAY=DP-1: desktop stream, nothing to tear down."
+  exit 0
+fi
+
 # Close Steam Big Picture first so it doesn't get reflowed onto another monitor
 # when the stream display goes away.
 STEAMBP_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')

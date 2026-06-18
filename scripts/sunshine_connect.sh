@@ -13,6 +13,10 @@ STATE_FILE="$HOME/.config/scripts/streamdisplay"
 STREAM_DISPLAY=$(cat "$STATE_FILE" 2>/dev/null)
 
 case "$STREAM_DISPLAY" in
+DP-1)
+  echo "STREAM_DISPLAY=DP-1: streaming the live desktop as-is; no monitor/Big Picture prep."
+  exit 0
+  ;;
 HDMI-A-1)
   TARGET_WKSPC=6
   echo "Enabling monitor: HDMI-A-1 (Shield/TV/Mac, HDR)"
