@@ -42,7 +42,7 @@ case "$1" in
 shield | machdr)
   OUTPUT="HDMI-A-1"
   CONF="sunshine-shield.conf"
-  enable_monitor "HDMI-A-1" 'output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false'
+  enable_monitor "HDMI-A-1" 'output = "HDMI-A-1", mode = "3840x2160@60", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false'
   ;;
 deck)
   OUTPUT="HDMI-A-2"

@@ -20,7 +20,7 @@ DP-1)
 HDMI-A-1)
   TARGET_WKSPC=6
   echo "Enabling monitor: HDMI-A-1 (Shield/TV/Mac, HDR)"
-  hyprctl eval 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false })'
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@60", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false })'
   ;;
 HDMI-A-2)
   TARGET_WKSPC=7
