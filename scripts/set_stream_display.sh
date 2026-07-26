@@ -28,12 +28,17 @@ machdr)
   OUTPUT="HDMI-A-1"
   cp "$SUNSHINE_DIR/sunshine-shield.conf" "$SUNSHINE_DIR/sunshine.conf"
   ;;
+mirror)
+  OUTPUT="DP-1"
+  cp "$SUNSHINE_DIR/sunshine-mirror.conf" "$SUNSHINE_DIR/sunshine.conf"
+  ;;
 *)
-  echo "Usage: $0 shield|deck|mac|machdr"
+  echo "Usage: $0 shield|deck|mac|machdr|mirror"
   echo "  shield -> HDMI-A-1 (KMS, HDR -- Shield/TV)"
   echo "  deck   -> HDMI-A-2 (wlr, virtual -- Steam Deck)"
   echo "  mac    -> DP-1     (KMS index 1 -- remote desktop, no monitor prep)"
   echo "  machdr -> HDMI-A-1 (KMS, HDR -- Mac via virtual HDR display, like shield)"
+  echo "  mirror -> DP-1     (KMS, SDR -- mirror desktop monitor to the TV)"
   exit 1
   ;;
 esac
