@@ -25,7 +25,7 @@ HDMI-A-1)
 HDMI-A-2)
   TARGET_WKSPC=7
   echo "Enabling monitor: HDMI-A-2 (Steam Deck)"
-  hyprctl eval 'hl.monitor({ output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, disabled = false })'
+  hyprctl eval 'hl.monitor({ output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, vrr = 1, disabled = false })'
   ;;
 *)
   echo "STREAM_DISPLAY not set or invalid ('$STREAM_DISPLAY'). Run set_stream_display.sh."

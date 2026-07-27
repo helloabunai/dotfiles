@@ -47,7 +47,7 @@ shield | machdr)
 deck)
   OUTPUT="HDMI-A-2"
   CONF="sunshine-steamdeck.conf"
-  enable_monitor "HDMI-A-2" 'output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, disabled = false'
+  enable_monitor "HDMI-A-2" 'output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, vrr = 1, disabled = false'
   ;;
 mac)
   OUTPUT="DP-1"

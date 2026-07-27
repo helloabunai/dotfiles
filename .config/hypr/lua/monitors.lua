@@ -3,8 +3,8 @@
 -- ============================================================================
 
 -- Physical monitors
-hl.monitor({ output = "DP-1", mode = "2560x1440@144", position = "0x0",      scale = 1 })
-hl.monitor({ output = "DP-2", mode = "2560x1440@144", position = "2560x-520", scale = 1, transform = 3 })
+hl.monitor({ output = "DP-1", mode = "2560x1440@144", position = "0x0",      scale = 1, vrr = 1 })
+hl.monitor({ output = "DP-2", mode = "2560x1440@144", position = "2560x-520", scale = 1, transform = 3, vrr = 1 })
 
 -- EDID fake for Sony Bravia @ Home (HDR + VRR)
 hl.monitor({
@@ -23,6 +23,7 @@ hl.monitor({
    mode     = "1280x800@90",
    position = "7840x0",
    scale    = 1,
+   vrr      = 1,
 })
 
 -- Workspace -> monitor placement
