@@ -1,0 +1,16 @@
+# INSTALL: sudo install -Dm644 zz-nvidia-frl.hook /etc/pacman.d/hooks/zz-nvidia-frl.hook
+# Runs /usr/local/bin/nvidia-frl-patch.sh after nvidia-open-dkms upgrades.
+# See nvidia-frl-patch.sh header for the full deployment steps.
+
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = nvidia-open-dkms
+
+[Action]
+Description = Re-applying HDMI FRL EDID patch (PR #1186) and rebuilding nvidia-open DKMS...
+When = PostTransaction
+Depends = dkms
+Depends = patch
+Exec = /usr/local/bin/nvidia-frl-patch.sh

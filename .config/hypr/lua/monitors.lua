@@ -9,7 +9,7 @@ hl.monitor({ output = "DP-2", mode = "2560x1440@144", position = "2560x-520", sc
 -- EDID fake for Sony Bravia @ Home (HDR + VRR)
 hl.monitor({
     output   = "HDMI-A-1",
-    mode     = "3840x2160@60",
+    mode     = "3840x2160@120",
     position = "4000x0",
     scale    = 1.5,
     bitdepth = 10,

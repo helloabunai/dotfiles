@@ -1,0 +1,46 @@
+diff --git a/kernel-open/nvidia-modeset/nvidia-modeset-linux.c b/kernel-open/nvidia-modeset/nvidia-modeset-linux.c
+index 8c2cf3740..93908dce5 100644
+--- a/kernel-open/nvidia-modeset/nvidia-modeset-linux.c
++++ b/kernel-open/nvidia-modeset/nvidia-modeset-linux.c
+@@ -101,7 +101,9 @@ static bool malloc_verbose = false;
+ module_param_named(malloc_verbose, malloc_verbose, bool, 0400);
+ 
+ MODULE_PARM_DESC(force_frl_rate,
+-                 "Override the default FRL rate selection (2 = max FRL rate w/ DSC, 1 = max FRL rate, 0 = default rate)");
++                 "Override the default FRL rate selection and use EDID-declared "
++                 "FRL link capabilities (2 = max FRL rate w/ DSC, "
++                 "1 = max FRL rate, 0 = default rate)");
+ static int force_frl_rate = 0;
+ module_param_named(force_frl_rate, force_frl_rate, int, 0400);
+ 
+diff --git a/src/nvidia-modeset/src/nvkms-hdmi.c b/src/nvidia-modeset/src/nvkms-hdmi.c
+index 179949cb0..0f0cdbba7 100644
+--- a/src/nvidia-modeset/src/nvkms-hdmi.c
++++ b/src/nvidia-modeset/src/nvkms-hdmi.c
+@@ -1978,8 +1978,10 @@ NvBool nvHdmiFrlAssessLink(NVDpyEvoPtr pDpyEvo)
+     NVDevEvoPtr pDevEvo = pDispEvo->pDevEvo;
+     NVHDMIPKT_RESULT ret;
+     const NvU32 displayId = nvDpyIdToNvU32(pDpyEvo->pConnectorEvo->displayId);
++    const enum NvKmsFrlRateForce forceFrlRate = nvkms_force_frl_rate();
+     NvBool bIsDisplayActive = NV_FALSE;
+-    NvBool bPerformLinkTrainingToAssess = NV_TRUE;
++    NvBool bPerformLinkTrainingToAssess =
++        (forceFrlRate == NVKMS_FRL_RATE_FORCE_NONE);
+     HDMI_FRL_DATA_RATE currFRLRate = HDMI_FRL_DATA_RATE_NONE;
+ 
+     nvAssert(nvDpyIsHdmiEvo(pDpyEvo) && nvHdmiDpySupportsFrl(pDpyEvo));
+@@ -1991,11 +1993,9 @@ NvBool nvHdmiFrlAssessLink(NVDpyEvoPtr pDpyEvo)
+         const HDMI_FRL_CONFIG *pFrlConfig = &pHeadState->hdmiFrlConfig;
+ 
+         bIsDisplayActive = NV_TRUE;
+-        if (pFrlConfig->frlRate == HDMI_FRL_DATA_RATE_NONE) {
+-            bPerformLinkTrainingToAssess = NV_FALSE;
+-        } else {
+-            bPerformLinkTrainingToAssess = NV_TRUE;
+-        }
++        bPerformLinkTrainingToAssess =
++            (pFrlConfig->frlRate != HDMI_FRL_DATA_RATE_NONE) &&
++            (forceFrlRate == NVKMS_FRL_RATE_FORCE_NONE);
+         currFRLRate = pFrlConfig->frlRate;
+     }
+ 
