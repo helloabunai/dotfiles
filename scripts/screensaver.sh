@@ -7,6 +7,7 @@ LOCK_CMD="hyprlock"
 TOLERANCE=50
 POLL_INTERVAL=0.2  # Even slower polling to reduce false positives
 GRACE_SECONDS=3    # Input within this window after launch aborts without firing lock
+CLEANUP_DELAY=2    # Seconds to let hyprlock map before reaping the terminals
 LOG_FILE="/home/alastairm/screensaver.log"
 
 # Optimized cursor position functions - cache hyprctl output
@@ -25,6 +26,26 @@ get_cursor_pos() {
 # Logging function
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" >> "$LOG_FILE"
+}
+
+# Tear down the matrix terminals *after* hyprlock has had time to map, in a
+# detached child so we can exit immediately.
+#
+# hyprlock is an ext-session-lock-v1 client, so its surface sits above every
+# window -- the terminals are already invisible the moment it maps, and nothing
+# can render on top of it. That means the kill has no deadline: it only needs to
+# happen eventually, to stop unimatrix burning CPU under the lock. The old
+# `sleep 0.3; pkill` inline was a blind guess at hyprlock's startup time; if
+# hyprlock took longer than that (cold wallpaper read, GPU blur) the terminals
+# died first and the bare desktop flashed through. Overshooting is free, so
+# overshoot.
+cleanup_detached() {
+    (
+        sleep "$CLEANUP_DELAY"
+        pkill -f "matrix_screensaver" 2>/dev/null
+        pkill -f "unimatrix" 2>/dev/null
+    ) >/dev/null 2>&1 &
+    disown 2>/dev/null || true
 }
 
 # Set up signal traps for clean exit
@@ -99,9 +120,7 @@ case "$1" in
                 fi
                 log "Matrix terminal count below expected ($EXPECTED_COUNT, got $current_count), activating lock..."
                 $LOCK_CMD --no-fade-in &
-                sleep 0.3
-                pkill -f "matrix_screensaver" 2>/dev/null
-                pkill -f "unimatrix" 2>/dev/null
+                cleanup_detached
                 exit 0
             fi
 
@@ -134,13 +153,11 @@ case "$1" in
                 log "Mouse movement detected (distance²: $dist_sq > $tol_sq), activating lock..."
                 echo "Mouse movement detected, activating lock..."
 
-                # Launch hyprlock FIRST so its layer surface is mapped on top
-                # before the matrix terminals die -- otherwise there's a brief
-                # gap (~100-500ms hyprlock startup) where the desktop flashes.
+                # Launch hyprlock FIRST, then reap the terminals from a detached
+                # child -- see cleanup_detached() for why the kill has no
+                # deadline once the session-lock surface is up.
                 $LOCK_CMD &
-                sleep 0.3
-                pkill -f "matrix_screensaver" 2>/dev/null
-                pkill -f "unimatrix" 2>/dev/null
+                cleanup_detached
                 exit 0
             fi
             
