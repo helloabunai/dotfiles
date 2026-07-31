@@ -1,0 +1,43 @@
+/**
+ * ROFI Layout — user override for HyDE "style_11" (DiagonalSplit)
+ *
+ * Imports the HyDE theme, then re-enables a visible search field at the
+ * bottom of the wallpaper panel so typed text (and typos that match nothing)
+ * stay readable. Kept in ~/.config/rofi so HyDE updates don't clobber it.
+ */
+
+@import "~/.local/share/rofi/themes/style_11.rasi"
+
+
+// Inputs //
+inputbar {
+    orientation:                 vertical;
+    children:                    [ "dummy" , "entrybox" ];
+}
+entrybox {
+    orientation:                 horizontal;
+    children:                    [ "prompt" , "entry" ];
+    expand:                      false;
+    spacing:                     0.8em;
+    padding:                     0.9em 1.4em;
+    background-color:            @main-bg;
+    text-color:                  @main-fg;
+    border-radius:               0em 0em 0em 1em;
+}
+prompt {
+    enabled:                     true;
+    expand:                      false;
+    vertical-align:              0.5;
+    background-color:            transparent;
+    text-color:                  @main-ex;
+}
+entry {
+    enabled:                     true;
+    expand:                      true;
+    vertical-align:              0.5;
+    cursor:                      text;
+    placeholder:                 "Search";
+    placeholder-color:           @main-ex;
+    background-color:            transparent;
+    text-color:                  @main-fg;
+}

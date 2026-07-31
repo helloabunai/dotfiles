@@ -1,0 +1,16 @@
+/**
+ * ROFI Layout — user override for HyDE "clipboard" config/theme
+ *
+ * Used by calculator.sh and cliphist.sh, both of which pass `-config clipboard`.
+ * That bypasses ~/.config/rofi/config.rasi entirely, so the keybind overrides
+ * have to be repeated here. Kept in ~/.config/rofi so HyDE updates don't
+ * clobber it.
+ */
+
+@import "~/.local/share/rofi/themes/clipboard.rasi"
+
+configuration {
+    /* See config.rasi — Ctrl+A clears the input line (rofi has no select-all). */
+    kb-move-front:               "Alt+a";
+    kb-clear-line:               "Control+a,Control+w";
+}

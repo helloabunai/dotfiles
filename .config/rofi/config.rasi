@@ -1,0 +1,23 @@
+/* ~/.config/rofi/config.rasi */
+
+configuration {
+
+  /* Highlight an entry under the mouse pointer */
+  hover-select: true;
+
+  /* Disable MousePrimary as an entry selector */
+  /* Without this setting you won't be able to set MousePrimary as an entry
+     acceptor. */
+  me-select-entry: "";
+
+  /* Use either LMB single click or RMB single click or LMB double click
+     to accept an entry */
+  me-accept-entry: [ MousePrimary, MouseSecondary, MouseDPrimary ];
+
+  /* Ctrl+A wipes the whole input line. Rofi's entry has no text selection, so
+     this is the closest thing to "select all" — and beats holding backspace.
+     Control+a's default (move cursor to start of line) moves to Alt+a. */
+  kb-move-front: "Alt+a";
+  kb-clear-line: "Control+a,Control+w";
+
+}
