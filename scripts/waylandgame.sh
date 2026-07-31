@@ -6,14 +6,17 @@
 ## Usage: Set Steam Launch Option to: /path/to/script.sh %command%
 ##
 
+#!/bin/bash
+
+trap - PIPE
 ulimit -c 0 ## ignore core dumps
 
 LOGFILE="${HOME}/scripts/debug.log"
 : >"$LOGFILE"
-
 # pipe + grep output to avoid wayland overlay messages (valve pls fix steam overlay wayland)
 IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales"
 exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee --output-error=exit -a "$LOGFILE") 2>&1
+
 log() {
   echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] SCRIPTLOG::::::: $*\n"
 }
@@ -29,32 +32,44 @@ echo "Connected from: $TARGET_CLIENT"
 echo "Target workspace: $TARGET_WKSPC"
 
 ## --- Parse keyword args (presence = enabled) ---
-## Usage: waylandgame.sh [wayland] [hdr] %command%
+## Usage: waylandgame.sh [wayland] [hdr] [nohud] %command%
 ##   wayland present -> PROTON_ENABLE_WAYLAND=1; absent -> 0 (X11/xwayland).
 ##     Steam Input gamepad only works under X11 until Steam Input gains Wayland
 ##     support, so default OFF and opt in per game.
 ##   hdr present -> HDR on, but only meaningful under wayland; forced off when
 ##     wayland is absent.
+##   nohud present -> skip MangoHud. Default is HUD ON (FPS counter only).
 ## Keywords must come before %command%; we shift them out so they are NOT
 ## passed on to the game (bare words would otherwise be exec'd as the command).
 USE_WAYLAND=0
 USE_HDR=0
+USE_HUD=1
 while [ $# -gt 0 ]; do
   case "$1" in
     wayland) USE_WAYLAND=1; shift ;;
     hdr)     USE_HDR=1;     shift ;;
+    nohud)   USE_HUD=0;     shift ;;
     *) break ;;
   esac
 done
 # HDR requires Wayland.
 [ "$USE_WAYLAND" -eq 0 ] && USE_HDR=0
 
+## --- MangoHud: FPS counter, top-left ---
+HUD_ENV_VARS=""
+if [ "$USE_HUD" -eq 1 ]; then
+  HUD_ENV_VARS="MANGOHUD=1 MANGOHUD_CONFIGFILE=$HOME/.config/MangoHud/waylandgame.conf"
+fi
+
 ## --- Environment Flag Definitions ---
 # PC Flags (Monitor)
-PC_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
+PC_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND DXVK_NVAPI_VKREFLEX=1 PROTON_DLSS_UPGRADE=1 PROTON_DXVK_LOWLATENCY=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
-# TV/HDR Flags (Sony/EDID)
-TV_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
+# TV/HDR Flags. DXVK_HDR=1 is what actually enables HDR for native-HDR DX games
+# on Wayland (Sekiro, etc.) -- PROTON_ENABLE_HDR alone isn't enough on
+# Hyprland 0.55+. Harmless for SDR games since DXVK ignores it without an HDR
+# swapchain request.
+TV_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND DXVK_NVAPI_VKREFLEX=1 PROTON_DLSS_UPGRADE=1 PROTON_DXVK_LOWLATENCY=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
 ## Map each streaming client to the virtual monitor it requires
@@ -100,6 +115,7 @@ fi
 
 log "Selected Env Vars: $ACTIVE_ENV_VARS"
 log "Target: workspace $HYPR_WORKSPACE"
+[ "$USE_HUD" -eq 1 ] && log "MangoHud: enabled (fps only, top-left)" || log "MangoHud: disabled via 'nohud'"
 
 ## --- Steam App ID + Database Overrides ---
 DB_ENV_FLAGS=""
@@ -151,10 +167,12 @@ fi
 
 ## -- Launch Game (BACKGROUND) --
 log "Launching game with Environment Variables..."
-log "FINAL EXEC: $ACTIVE_ENV_VARS $DB_ENV_FLAGS $@"
+log "FINAL EXEC: $ACTIVE_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
 
-# Run game in background so we can track and kill it if it hangs
-env $ACTIVE_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
+# Run game in background so we can track and kill it if it hangs.
+# HUD vars sit before DB_ENV_FLAGS so a per-game entry in game_envs.json can
+# still override them (with env, the last assignment of a name wins).
+env $ACTIVE_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
 GAME_PID_WRAPPER=$!
 
 ## -- Steam BP Toggle --
