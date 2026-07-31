@@ -3,8 +3,12 @@
 -- ============================================================================
 
 -- Physical monitors
-hl.monitor({ output = "DP-1", mode = "2560x1440@144", position = "0x0",      scale = 1, vrr = 2 })
-hl.monitor({ output = "DP-2", mode = "2560x1440@144", position = "2560x-520", scale = 1, transform = 3, vrr = 2 })
+-- vrr = 1 (always on), NOT 2 (fullscreen-only). Under vrr = 2 every fullscreen
+-- state change flips VRR on the monitor, so waylandgame.sh's fullscreen
+-- enforcement loop turned into dozens of display-state transitions whenever a
+-- game got backgrounded -- see the July 2026 The Finals background crash.
+hl.monitor({ output = "DP-1", mode = "2560x1440@144", position = "0x0",      scale = 1, vrr = 1 })
+hl.monitor({ output = "DP-2", mode = "2560x1440@144", position = "2560x-520", scale = 1, transform = 3, vrr = 1 })
 
 -- EDID fake for Sony Bravia @ Home (HDR + VRR)
 hl.monitor({

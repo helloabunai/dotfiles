@@ -33,6 +33,13 @@ hl.window_rule({ match = { class = "^(steam_app_\\d+)$" }, fullscreen = true })
 -- it land top-left off-screen. Only fires at map time, so a same-surface
 -- un-fullscreen (quit-to-title on some games) won't be caught.
 hl.window_rule({ match = { class = "^(steam_app_\\d+)$" }, center = true })
+-- Keep rendering games that are on a hidden workspace. Without this Hyprland
+-- sends no frame callbacks to an invisible surface, so a backgrounded game's
+-- render thread stalls while its netcode thread keeps running -- bad for online
+-- titles left running while you work on another workspace. Rate comes from
+-- misc.render_unfocused_fps. Same workaround as the wowclassic.exe block below.
+hl.window_rule({ match = { class = "^(steam_app_\\d+)$" }, render_unfocused = true })
+hl.window_rule({ match = { xdg_tag = "proton-game" },      render_unfocused = true })
 
 -- Idle inhibit
 hl.window_rule({ match = { class = "^(.*celluloid.*)$|^(.*mpv.*)$|^(.*vlc.*)$" }, idle_inhibit = "fullscreen" })
@@ -153,6 +160,8 @@ hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^$" }, no_f
 
 hl.window_rule({ match = { class = "^$", title = "^$" }, opacity  = "0 override" })
 hl.window_rule({ match = { class = "^$", title = "^$" }, no_focus = true })
+hl.window_rule({ match = { class = "^(xembedsniproxy)$" }, opacity  = "0 override" })
+hl.window_rule({ match = { class = "^(xembedsniproxy)$" }, no_focus = true })
 
 -- Screensaver
 -- All matrix_screensaver* classes get no_initial_focus so spawning the
