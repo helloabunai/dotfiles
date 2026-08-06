@@ -1,0 +1,395 @@
+#!/bin/bash
+
+##
+## Proton Wayland/HDR Launcher Wrapper -- DEBUG / LATENCY-MEASUREMENT VARIANT
+##
+## Usage: Set Steam Launch Option to: /path/to/script.sh %command%
+##
+## This is a COPY of waylandgame.sh. The only difference: the 'latency' keyword
+## additionally loads the pyrofling latency measurement Vulkan layer, so a run
+## can be captured and analysed. Everything else is identical -- if you change
+## waylandgame.sh, re-sync with:
+##   diff ~/scripts/waylandgame.sh ~/scripts/waylandgame_debug.sh
+##
+
+#!/bin/bash
+
+trap - PIPE
+ulimit -c 0 ## ignore core dumps
+
+# Own logfile so a measurement run doesn't clobber the normal launcher's log.
+LOGFILE="${HOME}/scripts/debug_latency.log"
+: >"$LOGFILE"
+# pipe + grep output to avoid wayland overlay messages (valve pls fix steam overlay wayland)
+IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales"
+exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee --output-error=exit -a "$LOGFILE") 2>&1
+
+log() {
+  echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] SCRIPTLOG::::::: $*\n"
+}
+
+## -- Screensaver Config --
+TERMINAL="kitty"
+WRAPPED_CMD="bash -c 'sleep 0.3; exec cmatrix -bs'"
+
+## -- Source variables --
+ENV_FILE="$HOME/.config/scripts/targetdevice"
+[ -f "$ENV_FILE" ] && source "$ENV_FILE"
+echo "Connected from: $TARGET_CLIENT"
+echo "Target workspace: $TARGET_WKSPC"
+
+## --- Parse keyword args (presence = enabled) ---
+## Usage: waylandgame.sh [wayland] [hdr] [nohud] [latency] %command%
+##   wayland present -> PROTON_ENABLE_WAYLAND=1; absent -> 0 (X11/xwayland).
+##     Steam Input gamepad only works under X11 until Steam Input gains Wayland
+##     support, so default OFF and opt in per game.
+##   hdr present -> HDR on, but only meaningful under wayland; forced off when
+##     wayland is absent.
+##   nohud present -> skip MangoHud. Default is HUD ON (FPS counter only).
+##   latency present -> enable Reflex / low-latency Proton flags AND load the
+##     pyrofling latency measurement layer. Default OFF.
+## Keywords must come before %command%; we shift them out so they are NOT
+## passed on to the game (bare words would otherwise be exec'd as the command).
+USE_WAYLAND=0
+USE_HDR=0
+USE_HUD=1
+USE_LATENCY=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    wayland) USE_WAYLAND=1; shift ;;
+    hdr)     USE_HDR=1;     shift ;;
+    nohud)   USE_HUD=0;     shift ;;
+    latency) USE_LATENCY=1; shift ;;
+    *) break ;;
+  esac
+done
+# HDR requires Wayland.
+[ "$USE_WAYLAND" -eq 0 ] && USE_HDR=0
+
+## --- Reflex / low-latency flags ---
+# Both are set together and never conflict: PROTON_VKD3D_LOWLATENCY drives the
+# DX12 path (vkd3d-proton) and PROTON_DXVK_LOWLATENCY drives DX11-and-under
+# (dxvk), so a given game only ever consumes one of them -- the other is inert.
+# These used to be hardcoded on. They are now opt-in so a run WITHOUT 'latency'
+# is a usable baseline to A/B against.
+LL_ENV_VARS=""
+if [ "$USE_LATENCY" -eq 1 ]; then
+  LL_ENV_VARS="PROTON_VKD3D_LOWLATENCY=1 PROTON_DXVK_LOWLATENCY=1"
+fi
+
+## --- Pyrofling latency measurement layer (DEBUG SCRIPT ONLY) ---
+# LATENCY_MEASUREMENT=1 is the implicit layer's enable_environment gate.
+# LATENCY_MEASUREMENT_MOUSE=n injects n units of synthetic mouse movement as the
+#   stimulus; override with MEASURE_MOUSE=n in the environment if the game's
+#   sensitivity makes the default too subtle or too violent.
+# DISABLE_LSFG=1 keeps Lossless Scaling frame gen out of the layer chain. Not
+#   strictly required (no game exe is configured in ~/.config/lsfg-vk/conf.toml)
+#   but frame generation would wreck these numbers if an entry were ever added.
+MEASURE_ENV_VARS=""
+if [ "$USE_LATENCY" -eq 1 ]; then
+  MEASURE_MOUSE="${MEASURE_MOUSE:-10}"
+  MEASURE_ENV_VARS="LATENCY_MEASUREMENT=1 LATENCY_MEASUREMENT_MOUSE=$MEASURE_MOUSE DISABLE_LSFG=1"
+  # A trigger file left behind by a previous run would start capturing at launch,
+  # before you are in-game and pointed at a stable scene. Always start clean.
+  rm -f /tmp/latency-measurement-trigger
+fi
+
+## --- MangoHud: FPS counter, top-left ---
+HUD_ENV_VARS=""
+if [ "$USE_HUD" -eq 1 ]; then
+  HUD_ENV_VARS="MANGOHUD=1 MANGOHUD_CONFIGFILE=$HOME/.config/MangoHud/waylandgame.conf"
+fi
+
+## --- Environment Flag Definitions ---
+# PC Flags (Monitor)
+PC_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
+
+# TV/HDR Flags
+TV_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
+
+## --- Conditional Logic ---
+## Map each streaming client to the virtual monitor it requires
+declare -A CLIENT_MONITOR_MAP=( [shield]="HDMI-A-1" [deck]="HDMI-A-2" [mac]="HDMI-A-1" )
+declare -A CLIENT_WORKSPACE_MAP=( [shield]="6" [deck]="7" [mac]="4" )
+
+ACTIVE_ENV_VARS=""
+TARGET_ENV=""
+HYPR_WORKSPACE=""
+
+EXPECTED_MONITOR="${CLIENT_MONITOR_MAP[$TARGET_CLIENT]}"
+STREAM_ACTIVE=false
+
+if [ -n "$EXPECTED_MONITOR" ]; then
+  if hyprctl monitors | grep -q "$EXPECTED_MONITOR"; then
+    STREAM_ACTIVE=true
+    log "Verified: Target client '$TARGET_CLIENT' has expected monitor '$EXPECTED_MONITOR' active"
+  else
+    log "Target client is '$TARGET_CLIENT' but monitor '$EXPECTED_MONITOR' is NOT active → stale config, defaulting to PC"
+  fi
+else
+  log "No target client set or unknown client '$TARGET_CLIENT' → defaulting to PC"
+fi
+
+if [ "$STREAM_ACTIVE" = true ]; then
+  if [[ "$TARGET_CLIENT" == "mac" ]]; then
+    log "HDMI-A-1 present but client is Mac → using PC flags"
+    ACTIVE_ENV_VARS="$PC_ENV_VARS"
+    TARGET_ENV="pc_env"
+    export HYPR_WORKSPACE="4"
+  else
+    log "Active stream to '$TARGET_CLIENT'. Using HDR/TV flags"
+    ACTIVE_ENV_VARS="$TV_ENV_VARS"
+    TARGET_ENV="tv_env"
+    export HYPR_WORKSPACE="${CLIENT_WORKSPACE_MAP[$TARGET_CLIENT]}"
+  fi
+else
+  log "No active stream. Using PC Standard flags."
+  ACTIVE_ENV_VARS="$PC_ENV_VARS"
+  TARGET_ENV="pc_env"
+  export HYPR_WORKSPACE="4"
+fi
+
+log "Selected Env Vars: $ACTIVE_ENV_VARS"
+log "Target: workspace $HYPR_WORKSPACE"
+[ "$USE_HUD" -eq 1 ] && log "MangoHud: enabled (fps only, top-left)" || log "MangoHud: disabled via 'nohud'"
+[ "$USE_LATENCY" -eq 1 ] && log "Low-latency: ENABLED via 'latency' ($LL_ENV_VARS)" || log "Low-latency: disabled (baseline run; pass 'latency' to enable)"
+if [ "$USE_LATENCY" -eq 1 ]; then
+  log "Latency layer: ENABLED ($MEASURE_ENV_VARS)"
+  log "  Get in-game, stand still facing a detailed STATIC scene, then:"
+  log "    touch /tmp/latency-measurement-trigger   # start capture"
+  log "    rm    /tmp/latency-measurement-trigger   # stop capture"
+  log "  Analyse: ~/repos/pyrofling/latency-measurement-layer/analyze_run.py /tmp/latency-measurement-*.csv"
+  [ "$USE_HUD" -eq 1 ] && log "  NOTE: MangoHud is on; pass 'nohud' for a cleaner measurement chain."
+else
+  log "Latency layer: disabled (pass 'latency' to measure)"
+fi
+
+## --- Steam App ID + Database Overrides ---
+DB_ENV_FLAGS=""
+DB_PATH="$HOME/scripts/game_envs.json"
+GAME_LAUNCH_CMD="$*"
+log "Raw game launch cmd: $GAME_LAUNCH_CMD"
+STEAM_APPID=$(echo "$GAME_LAUNCH_CMD" | grep -oP 'AppId=\K\d+')
+log "Launched SteamAppId: $STEAM_APPID"
+
+if [ -n "$STEAM_APPID" ] && [ -f "$DB_PATH" ]; then
+  DB_ENV_FLAGS=$(jq -r --arg id "$STEAM_APPID" --arg key "$TARGET_ENV" '.[$id][$key] // empty' "$DB_PATH")
+  NOTE=$(jq -r --arg id "$STEAM_APPID" '.[$id].note // empty' "$DB_PATH")
+
+  if [ -n "$DB_ENV_FLAGS" ]; then
+    log "Loaded DB_ENV_FLAGS: $DB_ENV_FLAGS"
+    [ -n "$NOTE" ] && log "Note/Parsed game: $NOTE"
+  else
+    log "No env flags found for Steam AppId=$STEAM_APPID in context=$TARGET_ENV"
+  fi
+else
+  log "No Steam AppId found or DB missing"
+fi
+
+#################
+## config done ##
+#################
+
+## --- PC Specific: Discord PTT & Waybar ---
+if [ "$TARGET_ENV" = "pc_env" ]; then
+  log "Starting push-to-talk fix"
+  env -u LD_PRELOAD /home/alastairm/.local/bin/pttfix >>/tmp/pttfix.log 2>&1 &
+  PTTFIX_PID=$!
+  log "PTTFIX started with PID $PTTFIX_PID"
+
+  log "Switching Waybar to fullscreen config"
+  chmod +w ~/.config/waybar/config.jsonc
+  cp ~/.config/waybar/config-fullscreen.jsonc ~/.config/waybar/config.jsonc
+  chmod -w ~/.config/waybar/config.jsonc
+  ~/scripts/waybar_refresh.sh
+fi
+
+## -- Lutris Detection --
+if [ -n "$LUTRIS_GAME_UUID" ]; then
+  log "Detected Lutris launch (LUTRIS_GAME_UUID=$LUTRIS_GAME_UUID)"
+  IS_LUTRIS=true
+else
+  IS_LUTRIS=false
+fi
+
+## -- Launch Game (BACKGROUND) --
+log "Launching game with Environment Variables..."
+log "FINAL EXEC: $ACTIVE_ENV_VARS $LL_ENV_VARS $MEASURE_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
+
+# Run game in background so we can track and kill it if it hangs.
+# HUD/LL/MEASURE vars sit before DB_ENV_FLAGS so a per-game entry in
+# game_envs.json can still override them (with env, the last assignment wins).
+env $ACTIVE_ENV_VARS $LL_ENV_VARS $MEASURE_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
+GAME_PID_WRAPPER=$!
+
+## -- Steam BP Toggle --
+if [ "$TARGET_ENV" = "tv_env" ]; then
+  STEAMBP_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')
+  if [ -n "$STEAMBP_ADDR" ]; then
+    hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$STEAMBP_ADDR\" })" >/dev/null 2>&1
+  fi
+fi
+
+## -- Window Detection & Enforcement Loop (FOREGROUND) --
+LOG_ONCE=true
+MAX_WAIT=120
+SLEEP_INTERVAL=1
+SCREENSAVER_TRIGGERED="false"
+
+WINDOW_SEEN="false"
+MISSING_COUNT=0
+MAX_MISSING=7 # 7 seconds tolerance for splash screens
+
+log "Window movement loop begins..."
+
+# Loop runs as long as the wrapper process is alive
+while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
+  CLIENT_INFO=$(hyprctl clients -j | jq -r --arg appid "steam_app_$STEAM_APPID" '.[] | select(.xdgTag == "proton-game" or .contentType == "game" or .class == $appid or .class == "steam_app_default" or (.class != null and (.class | test("^steam_app_\\d+$"))) or (.class != null and (.class | test("\\.(exe|EXE)$")))) | "\(.address) \(.workspace.id) \(.fullscreen)"' | head -n1)
+
+  if [ -n "$CLIENT_INFO" ]; then
+    # Window is active!
+    WINDOW_SEEN="true"
+    MISSING_COUNT=0 # Reset missing counter
+    
+    read CURRENT_ADDR CURRENT_WS CURRENT_FS <<<"$CLIENT_INFO"
+
+    # 1. Workspace Enforcement
+    if [ "$CURRENT_WS" != "$HYPR_WORKSPACE" ]; then
+      log "Enforcing: Moving $CURRENT_ADDR to WS $HYPR_WORKSPACE"
+      hyprctl dispatch "hl.dsp.window.move({ workspace = \"$HYPR_WORKSPACE\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
+      LOG_ONCE=true
+      
+    elif [ "$LOG_ONCE" = true ]; then
+      log "Window $CURRENT_ADDR is correctly on WS $HYPR_WORKSPACE."
+      LOG_ONCE=false
+
+      # 2. Monitor Screensavers (TV Mode Only)
+      if [ "$TARGET_ENV" = "tv_env" ] && [ "$SCREENSAVER_TRIGGERED" == "false" ]; then
+        log "TV mode: Starting monitor screensavers silently via window rules..."
+        ACTIVE_WS_DP1=$(hyprctl monitors -j | jq -r '.[] | select(.name=="DP-1") | .activeWorkspace.id')
+        
+        # Spawn directly to the target workspaces in fullscreen without changing focus
+        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL -e $WRAPPED_CMD]], { workspace = \"$ACTIVE_WS_DP1 silent\", fullscreen = true })"
+        hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL -e $WRAPPED_CMD]], { workspace = \"5 silent\", fullscreen = true })"
+
+        # Ensure we are definitively focused on the game
+        hyprctl dispatch "hl.dsp.focus({ workspace = \"$HYPR_WORKSPACE\" })"
+        SCREENSAVER_TRIGGERED="true"
+      fi
+    fi
+    
+    # 3. Fullscreen Enforcement
+    if [ "$CURRENT_FS" == "0" ] || [ "$CURRENT_FS" == "false" ]; then
+      log "Enforcing: Window detected as Windowed. Toggling fullscreen..."
+      hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
+    fi
+
+  else
+    # Window is missing!
+    if [ "$WINDOW_SEEN" == "true" ]; then
+      ((MISSING_COUNT++))
+      
+      # Only log every 5 seconds to prevent log spam
+      if ((MISSING_COUNT % 5 == 0)); then
+         log "Window missing. Splash screen gap or exit? ($MISSING_COUNT/$MAX_MISSING)"
+      fi
+      
+      if [ "$MISSING_COUNT" -ge "$MAX_MISSING" ]; then
+        log "Game window gone for $MAX_MISSING seconds. Assuming full exit."
+        # We simply break the loop to restore the desktop, but DO NOT kill the process yet.
+        break
+      fi
+    else
+      # Waiting for very first window
+      ((MAX_WAIT--))
+      if ((MAX_WAIT % 10 == 0)); then
+         log "Waiting for initial game window... ($MAX_WAIT seconds left)"
+      fi
+      if [ "$MAX_WAIT" -le 0 ]; then
+         log "Never saw game window after 120s. Exiting watcher."
+         break
+      fi
+    fi
+  fi
+  
+  sleep "$SLEEP_INTERVAL"
+done
+
+## -- Desktop Cleanup Phase --
+log "Game window closed. Restoring desktop environment..."
+
+# 1. Push-to-Talk fix cleanup
+if [ -n "$PTTFIX_PID" ]; then
+  log "Killing push-to-talk fix: PID $PTTFIX_PID"
+  kill $PTTFIX_PID 2>/dev/null
+fi
+
+# 2. Screensaver cleanup
+if [ "$TARGET_ENV" = "tv_env" ]; then
+  log "Stopping screensavers (killing cmatrix)..."
+  killall cmatrix 2>/dev/null
+fi
+
+# 3. Waybar Restore
+log "Restoring normal Waybar config"
+chmod +w ~/.config/waybar/config.jsonc
+cp ~/.config/waybar/config-normal.jsonc ~/.config/waybar/config.jsonc
+chmod -w ~/.config/waybar/config.jsonc
+~/scripts/waybar_refresh.sh
+
+if [ "$TARGET_ENV" = "tv_env" ] && [ -n "$STEAMBP_ADDR" ]; then
+  log "Restoring steam big picture to exclusive fullscreen..."
+  sleep 3
+  hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$STEAMBP_ADDR\" })" >/dev/null 2>&1
+fi
+
+# 4. Fix waybar dock
+pkill kded6
+
+## -- Graceful Proton Shutdown Phase --
+# Recursively collect all descendant PIDs of a given PID
+get_descendants() {
+  local children=$(pgrep -P "$1" 2>/dev/null)
+  for child in $children; do
+    echo "$child"
+    get_descendants "$child"
+  done
+}
+
+if [ "$IS_LUTRIS" = true ]; then
+  log "Lutris game: short grace period for wine cleanup..."
+  SHUTDOWN_TIMEOUT=10
+else
+  log "Desktop restored. Waiting for Steam to cleanly sync cloud saves and natively close Proton..."
+  SHUTDOWN_TIMEOUT=60
+fi
+
+while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
+  sleep 1
+  ((SHUTDOWN_TIMEOUT--))
+  
+  if [ "$SHUTDOWN_TIMEOUT" -le 0 ]; then
+    log "Process failed to close natively after timeout. Forcing termination..."
+
+
+    # Collect all descendants and SIGTERM them (deepest first)
+    DESCENDANTS=$(get_descendants $GAME_PID_WRAPPER)
+    for pid in $(echo "$DESCENDANTS" | tac); do
+      kill -TERM "$pid" 2>/dev/null
+    done
+    kill -TERM $GAME_PID_WRAPPER 2>/dev/null
+    sleep 2
+    # Force-kill any stragglers
+    for pid in $(get_descendants $GAME_PID_WRAPPER | tac); do
+      kill -9 "$pid" 2>/dev/null
+    done
+    kill -9 $GAME_PID_WRAPPER 2>/dev/null
+    if [ "$IS_LUTRIS" = true ]; then
+      pkill -f wineserver 2>/dev/null
+    fi
+
+    break
+  fi
+done
+
+log "Script finished cleanly."
