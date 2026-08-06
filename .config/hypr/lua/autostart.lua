@@ -23,7 +23,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
     hl.exec_cmd("ssh-add " .. HOME .. "/.ssh/github")
     hl.exec_cmd(scrPath .. "/batterynotify.sh")
-    hl.exec_cmd("nm-applet --indicator")
+    -- nm-applet starts after remote_cleanup, see monitors.conf block below
     hl.exec_cmd("udiskie --no-automount --smart-tray")
     hl.exec_cmd(scrPath .. "/polkitkdeauth.sh")
     hl.exec_cmd("hypridle")
@@ -38,7 +38,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-size 16")
 
     -- From monitors.conf
-    hl.exec_cmd("/usr/bin/bash " .. userScr .. "/remote_cleanup.sh")
+    -- nm-applet chained so its login notification lands after monitors settle.
+    -- ';' not '&&' so a cleanup failure still leaves a network tray icon.
+    hl.exec_cmd("sh -c '/usr/bin/bash " .. userScr .. "/remote_cleanup.sh; nm-applet --indicator'")
 
     -- From userprefs.conf
     hl.exec_cmd("firefox")
@@ -52,4 +54,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("sh -c 'sleep 10 && bluetoothctl power on'")
     hl.exec_cmd("rm ~/.cache/idle_inhibitor_status")
     hl.exec_cmd("/usr/bin/bash " .. userScr .. "/nfs_prewarm.sh")
+
+    hl.exec_cmd("gsr-ui launch-daemon")
 end)
