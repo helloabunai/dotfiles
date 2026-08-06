@@ -170,6 +170,24 @@ else
   IS_LUTRIS=false
 fi
 
+## -- Disable close-window bind while the game runs --
+# Trap rebinds it even if the loop bails or we get TERM/INT.
+# hl.unbind is not a dispatcher, so it needs eval not dispatch.
+QUITBIND_KEY="SUPER + Q"
+QUITBIND_CMD="$HOME/.local/lib/hyde/dontkillsteam.sh"
+QUITBIND_DESC="[Window Management] close focused window"
+restore_quitbind() {
+  [ "$QUITBIND_DISABLED" = "1" ] || return 0
+  QUITBIND_DISABLED=0
+  hyprctl eval "hl.bind(\"$QUITBIND_KEY\", hl.dsp.exec_cmd(\"$QUITBIND_CMD\"), { description = \"$QUITBIND_DESC\" })" >/dev/null 2>&1
+  log "Restored $QUITBIND_KEY"
+}
+trap restore_quitbind EXIT INT TERM HUP
+if hyprctl eval "hl.unbind(\"$QUITBIND_KEY\")" >/dev/null 2>&1; then
+  QUITBIND_DISABLED=1
+  log "Disabled $QUITBIND_KEY for this session"
+fi
+
 ## -- Launch Game (BACKGROUND) --
 log "Launching game with Environment Variables..."
 log "FINAL EXEC: $ACTIVE_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
