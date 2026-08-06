@@ -32,28 +32,43 @@ echo "Connected from: $TARGET_CLIENT"
 echo "Target workspace: $TARGET_WKSPC"
 
 ## --- Parse keyword args (presence = enabled) ---
-## Usage: waylandgame.sh [wayland] [hdr] [nohud] %command%
+## Usage: waylandgame.sh [wayland] [hdr] [nohud] [latency] %command%
 ##   wayland present -> PROTON_ENABLE_WAYLAND=1; absent -> 0 (X11/xwayland).
 ##     Steam Input gamepad only works under X11 until Steam Input gains Wayland
 ##     support, so default OFF and opt in per game.
 ##   hdr present -> HDR on, but only meaningful under wayland; forced off when
 ##     wayland is absent.
 ##   nohud present -> skip MangoHud. Default is HUD ON (FPS counter only).
+##   latency present -> enable Reflex / low-latency Proton flags. Default OFF.
 ## Keywords must come before %command%; we shift them out so they are NOT
 ## passed on to the game (bare words would otherwise be exec'd as the command).
 USE_WAYLAND=0
 USE_HDR=0
 USE_HUD=1
+USE_LATENCY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     wayland) USE_WAYLAND=1; shift ;;
     hdr)     USE_HDR=1;     shift ;;
     nohud)   USE_HUD=0;     shift ;;
+    latency) USE_LATENCY=1; shift ;;
     *) break ;;
   esac
 done
 # HDR requires Wayland.
 [ "$USE_WAYLAND" -eq 0 ] && USE_HDR=0
+
+## --- Reflex / low-latency flags ---
+# Both are set together and never conflict: PROTON_VKD3D_LOWLATENCY drives the
+# DX12 path (vkd3d-proton) and PROTON_DXVK_LOWLATENCY drives DX11-and-under
+# (dxvk), so a given game only ever consumes one of them -- the other is inert.
+# These used to be hardcoded on. They are now opt-in so a run WITHOUT 'latency'
+# is a usable baseline to A/B against, which is what the pyrofling latency
+# measurement layer needs (see waylandgame_debug.sh).
+LL_ENV_VARS=""
+if [ "$USE_LATENCY" -eq 1 ]; then
+  LL_ENV_VARS="PROTON_VKD3D_LOWLATENCY=1 PROTON_DXVK_LOWLATENCY=1"
+fi
 
 ## --- MangoHud: FPS counter, top-left ---
 HUD_ENV_VARS=""
@@ -63,13 +78,10 @@ fi
 
 ## --- Environment Flag Definitions ---
 # PC Flags (Monitor)
-PC_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_VKD3D_LOWLATENCY=1 PROTON_DXVK_LOWLATENCY=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
+PC_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
-# TV/HDR Flags. DXVK_HDR=1 is what actually enables HDR for native-HDR DX games
-# on Wayland (Sekiro, etc.) -- PROTON_ENABLE_HDR alone isn't enough on
-# Hyprland 0.55+. Harmless for SDR games since DXVK ignores it without an HDR
-# swapchain request.
-TV_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_VKD3D_LOWLATENCY=1 PROTON_DXVK_LOWLATENCY=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
+# TV/HDR Flags
+TV_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
 ## Map each streaming client to the virtual monitor it requires
@@ -116,6 +128,7 @@ fi
 log "Selected Env Vars: $ACTIVE_ENV_VARS"
 log "Target: workspace $HYPR_WORKSPACE"
 [ "$USE_HUD" -eq 1 ] && log "MangoHud: enabled (fps only, top-left)" || log "MangoHud: disabled via 'nohud'"
+[ "$USE_LATENCY" -eq 1 ] && log "Low-latency: ENABLED via 'latency' ($LL_ENV_VARS)" || log "Low-latency: disabled (baseline run; pass 'latency' to enable)"
 
 ## --- Steam App ID + Database Overrides ---
 DB_ENV_FLAGS=""
@@ -167,12 +180,12 @@ fi
 
 ## -- Launch Game (BACKGROUND) --
 log "Launching game with Environment Variables..."
-log "FINAL EXEC: $ACTIVE_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
+log "FINAL EXEC: $ACTIVE_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
 
 # Run game in background so we can track and kill it if it hangs.
-# HUD vars sit before DB_ENV_FLAGS so a per-game entry in game_envs.json can
+# HUD/LL vars sit before DB_ENV_FLAGS so a per-game entry in game_envs.json can
 # still override them (with env, the last assignment of a name wins).
-env $ACTIVE_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
+env $ACTIVE_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
 GAME_PID_WRAPPER=$!
 
 ## -- Steam BP Toggle --
