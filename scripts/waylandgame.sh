@@ -13,7 +13,7 @@ ulimit -c 0 ## ignore core dumps
 
 LOGFILE="${HOME}/scripts/debug.log"
 : >"$LOGFILE"
-# pipe + grep output to avoid wayland overlay messages (valve pls fix steam overlay wayland)
+# filter steam wayland overlay noise
 IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales"
 exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee --output-error=exit -a "$LOGFILE") 2>&1
 
@@ -33,15 +33,11 @@ echo "Target workspace: $TARGET_WKSPC"
 
 ## --- Parse keyword args (presence = enabled) ---
 ## Usage: waylandgame.sh [wayland] [hdr] [nohud] [latency] %command%
-##   wayland present -> PROTON_ENABLE_WAYLAND=1; absent -> 0 (X11/xwayland).
-##     Steam Input gamepad only works under X11 until Steam Input gains Wayland
-##     support, so default OFF and opt in per game.
-##   hdr present -> HDR on, but only meaningful under wayland; forced off when
-##     wayland is absent.
-##   nohud present -> skip MangoHud. Default is HUD ON (FPS counter only).
-##   latency present -> enable Reflex / low-latency Proton flags. Default OFF.
-## Keywords must come before %command%; we shift them out so they are NOT
-## passed on to the game (bare words would otherwise be exec'd as the command).
+##   wayland -> PROTON_ENABLE_WAYLAND=1. Steam Input needs X11.
+##   hdr     -> HDR on. Requires wayland.
+##   nohud   -> skip MangoHud. Default on.
+##   latency -> Reflex low-latency flags. Default off.
+## Keywords go before %command% and are shifted out.
 USE_WAYLAND=0
 USE_HDR=0
 USE_HUD=1
@@ -59,12 +55,8 @@ done
 [ "$USE_WAYLAND" -eq 0 ] && USE_HDR=0
 
 ## --- Reflex / low-latency flags ---
-# Both are set together and never conflict: PROTON_VKD3D_LOWLATENCY drives the
-# DX12 path (vkd3d-proton) and PROTON_DXVK_LOWLATENCY drives DX11-and-under
-# (dxvk), so a given game only ever consumes one of them -- the other is inert.
-# These used to be hardcoded on. They are now opt-in so a run WITHOUT 'latency'
-# is a usable baseline to A/B against, which is what the pyrofling latency
-# measurement layer needs (see waylandgame_debug.sh).
+# vkd3d drives DX12, dxvk drives DX11 and under.
+# Opt-in so a plain run stays a clean baseline.
 LL_ENV_VARS=""
 if [ "$USE_LATENCY" -eq 1 ]; then
   LL_ENV_VARS="PROTON_VKD3D_LOWLATENCY=1 PROTON_DXVK_LOWLATENCY=1"
@@ -80,7 +72,7 @@ fi
 # PC Flags (Monitor)
 PC_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
-# TV/HDR Flags
+# TV/HDR flags. DXVK_HDR=1 is what actually enables HDR.
 TV_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
@@ -182,9 +174,8 @@ fi
 log "Launching game with Environment Variables..."
 log "FINAL EXEC: $ACTIVE_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
 
-# Run game in background so we can track and kill it if it hangs.
-# HUD/LL vars sit before DB_ENV_FLAGS so a per-game entry in game_envs.json can
-# still override them (with env, the last assignment of a name wins).
+# Background so a hang can be tracked and killed.
+# DB_ENV_FLAGS last so per-game entries win.
 env $ACTIVE_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
 GAME_PID_WRAPPER=$!
 
@@ -234,7 +225,7 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
         log "TV mode: Starting monitor screensavers silently via window rules..."
         ACTIVE_WS_DP1=$(hyprctl monitors -j | jq -r '.[] | select(.name=="DP-1") | .activeWorkspace.id')
         
-        # Spawn directly to the target workspaces in fullscreen without changing focus
+        # Spawn fullscreen to target workspaces without changing focus
         hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL -e $WRAPPED_CMD]], { workspace = \"$ACTIVE_WS_DP1 silent\", fullscreen = true })"
         hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL -e $WRAPPED_CMD]], { workspace = \"5 silent\", fullscreen = true })"
 
@@ -262,7 +253,7 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
       
       if [ "$MISSING_COUNT" -ge "$MAX_MISSING" ]; then
         log "Game window gone for $MAX_MISSING seconds. Assuming full exit."
-        # We simply break the loop to restore the desktop, but DO NOT kill the process yet.
+        # Break to restore desktop; don't kill process yet.
         break
       fi
     else

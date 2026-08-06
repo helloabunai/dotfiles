@@ -5,14 +5,8 @@
 ##
 ## Usage: Set Steam Launch Option to: /path/to/script.sh %command%
 ##
-## This is a COPY of waylandgame.sh. The only difference: it ALWAYS loads the
-## pyrofling latency measurement Vulkan layer, so any run can be captured and
-## analysed. 'latency' still means exactly what it means in waylandgame.sh --
-## Reflex flags on -- which makes the two runs a clean A/B:
-##   waylandgame_debug.sh wayland nohud %command%           -> baseline
-##   waylandgame_debug.sh wayland latency nohud %command%   -> Reflex on
-## Everything else is identical -- if you change waylandgame.sh, re-sync with:
-##   diff ~/scripts/waylandgame.sh ~/scripts/waylandgame_debug.sh
+## Copy of waylandgame.sh that always loads the pyrofling layer.
+## Re-sync: diff ~/scripts/waylandgame.sh ~/scripts/waylandgame_debug.sh
 ##
 
 #!/bin/bash
@@ -20,10 +14,10 @@
 trap - PIPE
 ulimit -c 0 ## ignore core dumps
 
-# Own logfile so a measurement run doesn't clobber the normal launcher's log.
+# own logfile so measurement runs don't clobber the launcher log
 LOGFILE="${HOME}/scripts/debug_latency.log"
 : >"$LOGFILE"
-# pipe + grep output to avoid wayland overlay messages (valve pls fix steam overlay wayland)
+# filter steam wayland overlay noise
 IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales"
 exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee --output-error=exit -a "$LOGFILE") 2>&1
 
@@ -43,17 +37,12 @@ echo "Target workspace: $TARGET_WKSPC"
 
 ## --- Parse keyword args (presence = enabled) ---
 ## Usage: waylandgame.sh [wayland] [hdr] [nohud] [latency] %command%
-##   wayland present -> PROTON_ENABLE_WAYLAND=1; absent -> 0 (X11/xwayland).
-##     Steam Input gamepad only works under X11 until Steam Input gains Wayland
-##     support, so default OFF and opt in per game.
-##   hdr present -> HDR on, but only meaningful under wayland; forced off when
-##     wayland is absent.
-##   nohud present -> skip MangoHud. Default is HUD ON (FPS counter only).
-##   latency present -> enable Reflex / low-latency Proton flags. Default OFF.
-##     The measurement layer loads either way in this script; omit 'latency' to
-##     capture a baseline, pass it to capture the Reflex-on run.
-## Keywords must come before %command%; we shift them out so they are NOT
-## passed on to the game (bare words would otherwise be exec'd as the command).
+##   wayland -> PROTON_ENABLE_WAYLAND=1. Steam Input needs X11.
+##   hdr     -> HDR on. Requires wayland.
+##   nohud   -> skip MangoHud. Default on.
+##   latency -> Reflex low-latency flags. Default off.
+## Layer loads either way; omit 'latency' for baseline.
+## Keywords go before %command% and are shifted out.
 USE_WAYLAND=0
 USE_HDR=0
 USE_HUD=1
@@ -71,34 +60,19 @@ done
 [ "$USE_WAYLAND" -eq 0 ] && USE_HDR=0
 
 ## --- Reflex / low-latency flags ---
-# Both are set together and never conflict: PROTON_VKD3D_LOWLATENCY drives the
-# DX12 path (vkd3d-proton) and PROTON_DXVK_LOWLATENCY drives DX11-and-under
-# (dxvk), so a given game only ever consumes one of them -- the other is inert.
-# These used to be hardcoded on. They are now opt-in so a run WITHOUT 'latency'
-# is a usable baseline to A/B against.
+# vkd3d drives DX12, dxvk drives DX11 and under.
+# Opt-in so a plain run stays a clean baseline.
 LL_ENV_VARS=""
 if [ "$USE_LATENCY" -eq 1 ]; then
   LL_ENV_VARS="PROTON_VKD3D_LOWLATENCY=1 PROTON_DXVK_LOWLATENCY=1"
 fi
 
-## --- Pyrofling latency measurement layer (DEBUG SCRIPT ONLY) ---
-# LATENCY_MEASUREMENT=1 is the implicit layer's enable_environment gate.
-# LATENCY_MEASUREMENT_MOUSE=n injects n units of synthetic mouse movement as the
-#   stimulus; override with MEASURE_MOUSE=n in the environment if the game's
-#   sensitivity makes the default too subtle or too violent.
-# DISABLE_LSFG=1 keeps Lossless Scaling frame gen out of the layer chain. Not
-#   strictly required (no game exe is configured in ~/.config/lsfg-vk/conf.toml)
-#   but frame generation would wreck these numbers if an entry were ever added.
-# The layer loads UNCONDITIONALLY in this script -- measuring is the whole point
-# of the debug variant. 'latency' controls ONLY the Reflex flags above, so the
-# A/B is a pair of runs on the same scene:
-#   waylandgame_debug.sh wayland nohud %command%           -> baseline
-#   waylandgame_debug.sh wayland latency nohud %command%   -> Reflex on
-# (Tying the layer to 'latency' would make a baseline capture impossible.)
+## --- Pyrofling latency measurement layer ---
+# Loads unconditionally; MEASURE_MOUSE=n overrides the stimulus.
+# DISABLE_LSFG=1 keeps frame gen out of the chain.
 MEASURE_MOUSE="${MEASURE_MOUSE:-10}"
 MEASURE_ENV_VARS="LATENCY_MEASUREMENT=1 LATENCY_MEASUREMENT_MOUSE=$MEASURE_MOUSE DISABLE_LSFG=1"
-# A trigger file left behind by a previous run would start capturing at launch,
-# before you are in-game and pointed at a stable scene. Always start clean.
+# clear stale trigger so capture can't start at launch
 rm -f /tmp/latency-measurement-trigger
 
 ## --- MangoHud: FPS counter, top-left ---
@@ -111,10 +85,7 @@ fi
 # PC Flags (Monitor)
 PC_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
-# TV/HDR Flags. DXVK_HDR=1 is what actually enables HDR for native-HDR DX games
-# on Wayland (Sekiro, etc.) -- PROTON_ENABLE_HDR alone isn't enough on
-# Hyprland 0.55+. Harmless for SDR games since DXVK ignores it without an HDR
-# swapchain request.
+# TV/HDR flags. DXVK_HDR=1 is what actually enables HDR.
 TV_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
@@ -223,9 +194,8 @@ fi
 log "Launching game with Environment Variables..."
 log "FINAL EXEC: $ACTIVE_ENV_VARS $LL_ENV_VARS $MEASURE_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
 
-# Run game in background so we can track and kill it if it hangs.
-# HUD/LL/MEASURE vars sit before DB_ENV_FLAGS so a per-game entry in
-# game_envs.json can still override them (with env, the last assignment wins).
+# Background so a hang can be tracked and killed.
+# DB_ENV_FLAGS last so per-game entries win.
 env $ACTIVE_ENV_VARS $LL_ENV_VARS $MEASURE_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
 GAME_PID_WRAPPER=$!
 
@@ -275,7 +245,7 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
         log "TV mode: Starting monitor screensavers silently via window rules..."
         ACTIVE_WS_DP1=$(hyprctl monitors -j | jq -r '.[] | select(.name=="DP-1") | .activeWorkspace.id')
         
-        # Spawn directly to the target workspaces in fullscreen without changing focus
+        # Spawn fullscreen to target workspaces without changing focus
         hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL -e $WRAPPED_CMD]], { workspace = \"$ACTIVE_WS_DP1 silent\", fullscreen = true })"
         hyprctl dispatch "hl.dsp.exec_cmd([[$TERMINAL -e $WRAPPED_CMD]], { workspace = \"5 silent\", fullscreen = true })"
 
@@ -303,7 +273,7 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
       
       if [ "$MISSING_COUNT" -ge "$MAX_MISSING" ]; then
         log "Game window gone for $MAX_MISSING seconds. Assuming full exit."
-        # We simply break the loop to restore the desktop, but DO NOT kill the process yet.
+        # Break to restore desktop; don't kill process yet.
         break
       fi
     else
