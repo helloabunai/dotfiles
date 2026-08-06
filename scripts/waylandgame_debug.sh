@@ -5,10 +5,13 @@
 ##
 ## Usage: Set Steam Launch Option to: /path/to/script.sh %command%
 ##
-## This is a COPY of waylandgame.sh. The only difference: the 'latency' keyword
-## additionally loads the pyrofling latency measurement Vulkan layer, so a run
-## can be captured and analysed. Everything else is identical -- if you change
-## waylandgame.sh, re-sync with:
+## This is a COPY of waylandgame.sh. The only difference: it ALWAYS loads the
+## pyrofling latency measurement Vulkan layer, so any run can be captured and
+## analysed. 'latency' still means exactly what it means in waylandgame.sh --
+## Reflex flags on -- which makes the two runs a clean A/B:
+##   waylandgame_debug.sh wayland nohud %command%           -> baseline
+##   waylandgame_debug.sh wayland latency nohud %command%   -> Reflex on
+## Everything else is identical -- if you change waylandgame.sh, re-sync with:
 ##   diff ~/scripts/waylandgame.sh ~/scripts/waylandgame_debug.sh
 ##
 
@@ -46,8 +49,9 @@ echo "Target workspace: $TARGET_WKSPC"
 ##   hdr present -> HDR on, but only meaningful under wayland; forced off when
 ##     wayland is absent.
 ##   nohud present -> skip MangoHud. Default is HUD ON (FPS counter only).
-##   latency present -> enable Reflex / low-latency Proton flags AND load the
-##     pyrofling latency measurement layer. Default OFF.
+##   latency present -> enable Reflex / low-latency Proton flags. Default OFF.
+##     The measurement layer loads either way in this script; omit 'latency' to
+##     capture a baseline, pass it to capture the Reflex-on run.
 ## Keywords must come before %command%; we shift them out so they are NOT
 ## passed on to the game (bare words would otherwise be exec'd as the command).
 USE_WAYLAND=0
@@ -85,14 +89,17 @@ fi
 # DISABLE_LSFG=1 keeps Lossless Scaling frame gen out of the layer chain. Not
 #   strictly required (no game exe is configured in ~/.config/lsfg-vk/conf.toml)
 #   but frame generation would wreck these numbers if an entry were ever added.
-MEASURE_ENV_VARS=""
-if [ "$USE_LATENCY" -eq 1 ]; then
-  MEASURE_MOUSE="${MEASURE_MOUSE:-10}"
-  MEASURE_ENV_VARS="LATENCY_MEASUREMENT=1 LATENCY_MEASUREMENT_MOUSE=$MEASURE_MOUSE DISABLE_LSFG=1"
-  # A trigger file left behind by a previous run would start capturing at launch,
-  # before you are in-game and pointed at a stable scene. Always start clean.
-  rm -f /tmp/latency-measurement-trigger
-fi
+# The layer loads UNCONDITIONALLY in this script -- measuring is the whole point
+# of the debug variant. 'latency' controls ONLY the Reflex flags above, so the
+# A/B is a pair of runs on the same scene:
+#   waylandgame_debug.sh wayland nohud %command%           -> baseline
+#   waylandgame_debug.sh wayland latency nohud %command%   -> Reflex on
+# (Tying the layer to 'latency' would make a baseline capture impossible.)
+MEASURE_MOUSE="${MEASURE_MOUSE:-10}"
+MEASURE_ENV_VARS="LATENCY_MEASUREMENT=1 LATENCY_MEASUREMENT_MOUSE=$MEASURE_MOUSE DISABLE_LSFG=1"
+# A trigger file left behind by a previous run would start capturing at launch,
+# before you are in-game and pointed at a stable scene. Always start clean.
+rm -f /tmp/latency-measurement-trigger
 
 ## --- MangoHud: FPS counter, top-left ---
 HUD_ENV_VARS=""
@@ -104,7 +111,10 @@ fi
 # PC Flags (Monitor)
 PC_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
-# TV/HDR Flags
+# TV/HDR Flags. DXVK_HDR=1 is what actually enables HDR for native-HDR DX games
+# on Wayland (Sekiro, etc.) -- PROTON_ENABLE_HDR alone isn't enough on
+# Hyprland 0.55+. Harmless for SDR games since DXVK ignores it without an HDR
+# swapchain request.
 TV_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
@@ -153,16 +163,13 @@ log "Selected Env Vars: $ACTIVE_ENV_VARS"
 log "Target: workspace $HYPR_WORKSPACE"
 [ "$USE_HUD" -eq 1 ] && log "MangoHud: enabled (fps only, top-left)" || log "MangoHud: disabled via 'nohud'"
 [ "$USE_LATENCY" -eq 1 ] && log "Low-latency: ENABLED via 'latency' ($LL_ENV_VARS)" || log "Low-latency: disabled (baseline run; pass 'latency' to enable)"
-if [ "$USE_LATENCY" -eq 1 ]; then
-  log "Latency layer: ENABLED ($MEASURE_ENV_VARS)"
-  log "  Get in-game, stand still facing a detailed STATIC scene, then:"
-  log "    touch /tmp/latency-measurement-trigger   # start capture"
-  log "    rm    /tmp/latency-measurement-trigger   # stop capture"
-  log "  Analyse: ~/repos/pyrofling/latency-measurement-layer/analyze_run.py /tmp/latency-measurement-*.csv"
-  [ "$USE_HUD" -eq 1 ] && log "  NOTE: MangoHud is on; pass 'nohud' for a cleaner measurement chain."
-else
-  log "Latency layer: disabled (pass 'latency' to measure)"
-fi
+log "Latency layer: ENABLED ($MEASURE_ENV_VARS)"
+[ "$USE_LATENCY" -eq 1 ] && log "  Capturing the REFLEX-ON run" || log "  Capturing the BASELINE run (no Reflex flags)"
+log "  Get in-game, stand still facing a detailed STATIC scene, then:"
+log "    touch /tmp/latency-measurement-trigger   # start capture"
+log "    rm    /tmp/latency-measurement-trigger   # stop capture"
+log "  Analyse: ~/repos/pyrofling/latency-measurement-layer/analyze_run.py /tmp/latency-measurement-*.csv"
+[ "$USE_HUD" -eq 1 ] && log "  NOTE: MangoHud is on; pass 'nohud' for a cleaner measurement chain."
 
 ## --- Steam App ID + Database Overrides ---
 DB_ENV_FLAGS=""
