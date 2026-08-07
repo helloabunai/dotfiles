@@ -207,7 +207,8 @@ fi
 
 ## -- Window Detection & Enforcement Loop (FOREGROUND) --
 LOG_ONCE=true
-MAX_WAIT=120
+MAX_WAIT_INIT=120
+MAX_WAIT=$MAX_WAIT_INIT
 SLEEP_INTERVAL=1
 SCREENSAVER_TRIGGERED="false"
 
@@ -215,18 +216,76 @@ WINDOW_SEEN="false"
 MISSING_COUNT=0
 MAX_MISSING=7 # 7 seconds tolerance for splash screens
 
+# Loader windows match the same filters as the game but refuse fullscreen; track state per address so we stop fighting them.
+declare -A FS_ATTEMPTS=()
+declare -A FS_GIVEUP=()
+declare -A FIRST_SEEN=()
+MAX_FS_ATTEMPTS=4
+FS_GRACE=3       # settle time for a window that looks like the game proper
+LOADER_GRACE=20  # settle time for loader-shaped windows; most are gone by then
+FS_HOLD=3        # consecutive fullscreen polls before a window counts as the real game
+
+# Proton tags launchers as "proton-game" too, so shape is the only tell: a loader is both untitled and a fraction of the screen.
+LOADER_AREA_PCT=20
+case "$TARGET_ENV" in
+  tv_env) TARGET_MONITOR="${CLIENT_MONITOR_MAP[$TARGET_CLIENT]}" ;;
+  *)      TARGET_MONITOR="DP-1" ;;
+esac
+MON_AREA=$(hyprctl monitors -j | jq -r --arg m "$TARGET_MONITOR" '[.[] | select(.name == $m) | ((.width / .scale) * (.height / .scale))] | .[0] // 0' | cut -d. -f1)
+MIN_GAME_AREA=$(( ${MON_AREA:-0} * LOADER_AREA_PCT / 100 ))
+log "Loader filter: monitor $TARGET_MONITOR area ${MON_AREA:-0}, windows under ${MIN_GAME_AREA}px or untitled treated as loaders"
+TICK=0
+SELECTED_ADDR=""
+FS_STABLE=0
+REAL_WINDOW_SEEN="false"
+LOADER_GAP_HANDLED="false"
+
 log "Window movement loop begins..."
 
 # Loop runs as long as the wrapper process is alive
 while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
-  CLIENT_INFO=$(hyprctl clients -j | jq -r --arg appid "steam_app_$STEAM_APPID" '.[] | select(.xdgTag == "proton-game" or .contentType == "game" or .class == $appid or .class == "steam_app_default" or (.class != null and (.class | test("^steam_app_\\d+$"))) or (.class != null and (.class | test("\\.(exe|EXE)$")))) | "\(.address) \(.workspace.id) \(.fullscreen)"' | head -n1)
+  ((TICK++))
+
+  # Game-shaped beats loader-shaped; then self-declared game beats appid class beats bare .exe; larger area breaks ties.
+  CANDIDATES=$(hyprctl clients -j | jq -r --arg appid "steam_app_$STEAM_APPID" --argjson minarea "${MIN_GAME_AREA:-0}" '
+    [ .[]
+      | select(.xdgTag == "proton-game" or .contentType == "game" or .class == $appid or .class == "steam_app_default" or (.class != null and (.class | test("^steam_app_\\d+$"))) or (.class != null and (.class | test("\\.(exe|EXE)$"))))
+      | { addr: .address, ws: .workspace.id, fs: .fullscreen,
+          area: (((.size[0] // 0) * (.size[1] // 0))),
+          loaderish: (if ((.title // "") == "" and (((.size[0] // 0) * (.size[1] // 0)) < $minarea)) then 1 else 0 end),
+          rank: (if (.xdgTag == "proton-game" or .contentType == "game") then 0
+                 elif (.class == $appid) then 1
+                 else 2 end) } ]
+    | sort_by(.loaderish, .rank, -.area) | .[] | "\(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs)"')
+
+  # A written-off loader scores last, so the real window wins as soon as it maps.
+  CLIENT_INFO=""
+  BEST_SCORE=99
+  while read -r C_RANK C_LOADERISH C_ADDR C_WS C_FS; do
+    [ -z "$C_ADDR" ] && continue
+    SCORE=$((C_RANK + C_LOADERISH * 5))
+    [ "${FS_GIVEUP[$C_ADDR]}" = "1" ] && SCORE=$((SCORE + 10))
+    if [ "$SCORE" -lt "$BEST_SCORE" ]; then
+      BEST_SCORE=$SCORE
+      CLIENT_INFO="$C_ADDR $C_WS $C_FS $C_RANK $C_LOADERISH"
+    fi
+  done <<<"$CANDIDATES"
 
   if [ -n "$CLIENT_INFO" ]; then
     # Window is active!
     WINDOW_SEEN="true"
     MISSING_COUNT=0 # Reset missing counter
-    
-    read CURRENT_ADDR CURRENT_WS CURRENT_FS <<<"$CLIENT_INFO"
+
+    read CURRENT_ADDR CURRENT_WS CURRENT_FS CURRENT_RANK CURRENT_LOADERISH <<<"$CLIENT_INFO"
+
+    if [ "$CURRENT_ADDR" != "$SELECTED_ADDR" ]; then
+      WIN_DESC=$(hyprctl clients -j | jq -r --arg a "$CURRENT_ADDR" '.[] | select(.address == $a) | "class=\(.class) title=\(.title) size=\(.size[0])x\(.size[1]) xdgTag=\(.xdgTag) contentType=\(.contentType) floating=\(.floating)"')
+      log "Enforcement target: $CURRENT_ADDR (rank $CURRENT_RANK, loaderish $CURRENT_LOADERISH) $WIN_DESC"
+      SELECTED_ADDR="$CURRENT_ADDR"
+      FS_STABLE=0
+      LOG_ONCE=true
+    fi
+    [ -z "${FIRST_SEEN[$CURRENT_ADDR]}" ] && FIRST_SEEN[$CURRENT_ADDR]=$TICK
 
     # 1. Workspace Enforcement
     if [ "$CURRENT_WS" != "$HYPR_WORKSPACE" ]; then
@@ -255,13 +314,44 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
     
     # 3. Fullscreen Enforcement
     if [ "$CURRENT_FS" == "0" ] || [ "$CURRENT_FS" == "false" ]; then
-      log "Enforcing: Window detected as Windowed. Toggling fullscreen..."
-      hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
+      FS_STABLE=0
+      AGE=$((TICK - ${FIRST_SEEN[$CURRENT_ADDR]}))
+      # Loader-shaped windows get a long leash, so short-lived ones are never touched at all.
+      GRACE=$FS_GRACE
+      [ "$CURRENT_LOADERISH" = "1" ] && GRACE=$LOADER_GRACE
+      if [ "${FS_GIVEUP[$CURRENT_ADDR]}" = "1" ]; then
+        : # written-off loader, leave it alone
+      elif [ "$AGE" -lt "$GRACE" ]; then
+        : # let it settle, it may fullscreen itself
+      elif [ "${FS_ATTEMPTS[$CURRENT_ADDR]:-0}" -ge "$MAX_FS_ATTEMPTS" ]; then
+        FS_GIVEUP[$CURRENT_ADDR]=1
+        log "Window $CURRENT_ADDR refused fullscreen ${MAX_FS_ATTEMPTS}x. Treating as loader; waiting for the real game window."
+      else
+        FS_ATTEMPTS[$CURRENT_ADDR]=$((${FS_ATTEMPTS[$CURRENT_ADDR]:-0} + 1))
+        log "Enforcing: Window detected as Windowed. Setting fullscreen (${FS_ATTEMPTS[$CURRENT_ADDR]}/$MAX_FS_ATTEMPTS)..."
+        hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"set\", mode = \"fullscreen\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
+      fi
+    else
+      ((FS_STABLE++))
+      if [ "$FS_STABLE" -ge "$FS_HOLD" ]; then
+        # Holding fullscreen proves it is not a loader, so its budget resets for later alt-tabs.
+        FS_ATTEMPTS[$CURRENT_ADDR]=0
+        if [ "$REAL_WINDOW_SEEN" != "true" ]; then
+          REAL_WINDOW_SEEN="true"
+          log "Window $CURRENT_ADDR held fullscreen for ${FS_HOLD}s. Treating as the real game window."
+        fi
+      fi
     fi
 
   else
-    # Window is missing!
-    if [ "$WINDOW_SEEN" == "true" ]; then
+    # Window is missing! Only a window that held fullscreen counts as an exit; a vanished loader means the game is still coming.
+    if [ "$WINDOW_SEEN" == "true" ] && [ "$REAL_WINDOW_SEEN" != "true" ] && [ "$LOADER_GAP_HANDLED" != "true" ]; then
+      LOADER_GAP_HANDLED="true"
+      MAX_WAIT=$MAX_WAIT_INIT
+      log "Loader closed before any window held fullscreen. Resetting ${MAX_WAIT}s budget for the real game window."
+    fi
+
+    if [ "$WINDOW_SEEN" == "true" ] && [ "$REAL_WINDOW_SEEN" == "true" ]; then
       ((MISSING_COUNT++))
       
       # Only log every 5 seconds to prevent log spam
