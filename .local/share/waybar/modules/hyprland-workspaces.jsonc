@@ -12,8 +12,8 @@
         // restores click-to-switch automatically. Keybinds (SUPER+N) work.
         "on-click": "activate",
         "disable-scroll": true,
-        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r-1\" })'",
-        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r+1\" })'",
+        "on-scroll-up": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r+1\" })'",
+        "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({ workspace = \"r-1\" })'",
         "persistent-workspaces": {
 		"DP-1": [1,2,3,4],
 		"DP-2": [5]
