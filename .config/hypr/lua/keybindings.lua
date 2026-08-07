@@ -14,6 +14,8 @@ local moveActiveOrDirection = v.moveActiveOrDirection
 -- ---- Window Management ----
 hl.bind(mainMod         .. " + Q",      hl.dsp.exec_cmd(scrPath .. "/dontkillsteam.sh"), { description = "[Window Management] close focused window" })
 hl.bind("ALT + F4",                     hl.dsp.exec_cmd(scrPath .. "/dontkillsteam.sh"), { description = "[Window Management] close focused window" })
+-- Two-handed escape hatch: stays bound while waylandgame.sh unbinds SUPER + Q for the session.
+hl.bind(mainMod .. " + SHIFT + CONTROL + Q", hl.dsp.exec_cmd(scrPath .. "/dontkillsteam.sh"), { description = "[Window Management] close focused window (game-safe)" })
 hl.bind(mainMod         .. " + Delete", hl.dsp.exit(),                                    { description = "[Window Management] kill hyprland session" })
 hl.bind(mainMod         .. " + W",      hl.dsp.window.float({ action = "toggle" }),       { description = "[Window Management] Toggle floating" })
 hl.bind(mainMod         .. " + G",      hl.dsp.group.toggle(),                            { description = "[Window Management] toggle group" })
