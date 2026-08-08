@@ -32,22 +32,25 @@ echo "Connected from: $TARGET_CLIENT"
 echo "Target workspace: $TARGET_WKSPC"
 
 ## --- Parse keyword args (presence = enabled) ---
-## Usage: waylandgame.sh [wayland] [hdr] [nohud] [latency] %command%
+## Usage: waylandgame.sh [wayland] [hdr] [nohud] [latency] [dheap] %command%
 ##   wayland -> PROTON_ENABLE_WAYLAND=1. Steam Input needs X11.
 ##   hdr     -> HDR on. Requires wayland.
 ##   nohud   -> skip MangoHud. Default on.
 ##   latency -> Reflex low-latency flags. Default off.
+##   dheap   -> VKD3D_CONFIG=descriptor_heap. Unset entirely when absent.
 ## Keywords go before %command% and are shifted out.
 USE_WAYLAND=0
 USE_HDR=0
 USE_HUD=1
 USE_LATENCY=0
+USE_DHEAP=0
 while [ $# -gt 0 ]; do
   case "$1" in
     wayland) USE_WAYLAND=1; shift ;;
     hdr)     USE_HDR=1;     shift ;;
     nohud)   USE_HUD=0;     shift ;;
     latency) USE_LATENCY=1; shift ;;
+    dheap)   USE_DHEAP=1;   shift ;;
     *) break ;;
   esac
 done
@@ -68,12 +71,19 @@ if [ "$USE_HUD" -eq 1 ]; then
   HUD_ENV_VARS="MANGOHUD=1 MANGOHUD_CONFIGFILE=$HOME/.config/MangoHud/waylandgame.conf"
 fi
 
+## --- vkd3d descriptor heap ---
+# Opt-in only. Absent means VKD3D_CONFIG is left unset, not set to something else.
+DHEAP_ENV_VARS=""
+if [ "$USE_DHEAP" -eq 1 ]; then
+  DHEAP_ENV_VARS="VKD3D_CONFIG=descriptor_heap"
+fi
+
 ## --- Environment Flag Definitions ---
 # PC Flags (Monitor)
-PC_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_USE_WOW64=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
+PC_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_USE_WOW64=1 PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
 # TV/HDR flags. DXVK_HDR=1 is what actually enables HDR.
-TV_ENV_VARS="VKD3D_CONFIG=descriptor_heap PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_USE_WOW64=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
+TV_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_USE_WOW64=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 PROTON_PREFER_SDL=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
 ## Map each streaming client to the virtual monitor it requires
@@ -121,6 +131,7 @@ log "Selected Env Vars: $ACTIVE_ENV_VARS"
 log "Target: workspace $HYPR_WORKSPACE"
 [ "$USE_HUD" -eq 1 ] && log "MangoHud: enabled (fps only, top-left)" || log "MangoHud: disabled via 'nohud'"
 [ "$USE_LATENCY" -eq 1 ] && log "Low-latency: ENABLED via 'latency' ($LL_ENV_VARS)" || log "Low-latency: disabled (baseline run; pass 'latency' to enable)"
+[ "$USE_DHEAP" -eq 1 ] && log "vkd3d descriptor heap: ENABLED via 'dheap' ($DHEAP_ENV_VARS)" || log "vkd3d descriptor heap: disabled (VKD3D_CONFIG unset; pass 'dheap' to enable)"
 
 ## --- Steam App ID + Database Overrides ---
 DB_ENV_FLAGS=""
@@ -190,11 +201,11 @@ fi
 
 ## -- Launch Game (BACKGROUND) --
 log "Launching game with Environment Variables..."
-log "FINAL EXEC: $ACTIVE_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
+log "FINAL EXEC: $ACTIVE_ENV_VARS $DHEAP_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS $@"
 
 # Background so a hang can be tracked and killed.
 # DB_ENV_FLAGS last so per-game entries win.
-env $ACTIVE_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
+env $ACTIVE_ENV_VARS $DHEAP_ENV_VARS $LL_ENV_VARS $HUD_ENV_VARS $DB_ENV_FLAGS "$@" < /dev/null &
 GAME_PID_WRAPPER=$!
 
 ## -- Steam BP Toggle --
