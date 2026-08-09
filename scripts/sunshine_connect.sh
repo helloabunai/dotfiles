@@ -12,6 +12,8 @@
 STATE_FILE="$HOME/.config/scripts/streamdisplay"
 STREAM_DISPLAY=$(cat "$STATE_FILE" 2>/dev/null)
 
+source "$HOME/scripts/lib/stream_modes.sh"
+
 case "$STREAM_DISPLAY" in
 DP-1)
   echo "STREAM_DISPLAY=DP-1: streaming the live desktop as-is; no monitor/Big Picture prep."
@@ -19,8 +21,9 @@ DP-1)
   ;;
 HDMI-A-1)
   TARGET_WKSPC=6
-  echo "Enabling monitor: HDMI-A-1 (Shield/TV/Mac, HDR)"
-  hyprctl eval 'hl.monitor({ output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false })'
+  RES=$(stream_res)
+  echo "Enabling monitor: HDMI-A-1 (Shield/TV/Mac, HDR, $RES)"
+  hyprctl eval "hl.monitor({ $(hdmi1_mode_args "$RES") })"
   ;;
 HDMI-A-2)
   TARGET_WKSPC=7

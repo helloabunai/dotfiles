@@ -19,6 +19,18 @@ STATE_FILE="$HOME/.config/scripts/streamdisplay"
 SUNSHINE_DIR="$HOME/.config/sunshine"
 SUNSHINE_BIN="$(command -v sunshine)"
 
+source "$HOME/scripts/lib/stream_modes.sh"
+
+# Resolution arg (HDMI-A-1 targets only). Absent = hires.
+RES="${2:-hires}"
+case "$RES" in
+hires | lowres) ;;
+*)
+  echo "ERROR: unknown resolution '$2' (expected hires or lowres)"
+  exit 1
+  ;;
+esac
+
 # enable_monitor <name> <hl.monitor arg string>
 # Enables a Hyprland output and waits (~6s) for it to actually be online.
 enable_monitor() {
@@ -42,25 +54,31 @@ case "$1" in
 shield | machdr)
   OUTPUT="HDMI-A-1"
   CONF="sunshine-shield.conf"
-  enable_monitor "HDMI-A-1" 'output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false'
+  echo "$RES" > "$STREAM_RES_FILE"
+  enable_monitor "HDMI-A-1" "$(hdmi1_mode_args "$RES")"
   ;;
 deck)
   OUTPUT="HDMI-A-2"
   CONF="sunshine-steamdeck.conf"
+  [ -n "$2" ] && echo "NOTE: resolution '$2' ignored; only HDMI-A-1 targets have one."
   enable_monitor "HDMI-A-2" 'output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, vrr = 1, disabled = false'
   ;;
 mac)
   OUTPUT="DP-1"
   CONF="sunshine-mac.conf"
+  [ -n "$2" ] && echo "NOTE: resolution '$2' ignored; only HDMI-A-1 targets have one."
   # DP-1 is a physical, always-on monitor: nothing to enable.
   ;;
 mirror)
   OUTPUT="DP-1"
   CONF="sunshine-mirror.conf"
+  [ -n "$2" ] && echo "NOTE: resolution '$2' ignored; only HDMI-A-1 targets have one."
   # DP-1 is a physical, always-on monitor: nothing to enable.
   ;;
 *)
-  echo "Usage: $0 shield|deck|mac|machdr|mirror"
+  echo "Usage: $0 shield|deck|mac|machdr|mirror [hires|lowres]"
+  echo "  hires  -> 3840x2160@120 scale 1.5 (default). lowres -> 2560x1440@120 scale 1."
+  echo "  Resolution applies to HDMI-A-1 targets (shield, machdr) only."
   echo "  shield -> HDMI-A-1 (KMS, HDR -- Shield/TV)"
   echo "  deck   -> HDMI-A-2 (wlr, virtual -- Steam Deck)"
   echo "  mac    -> DP-1     (wlr -- remote desktop, no monitor prep)"
@@ -96,4 +114,8 @@ echo "Launching Sunshine (STREAM_DISPLAY=$OUTPUT, config=$CONF)..."
 setsid "$SUNSHINE_BIN" >/dev/null 2>&1 < /dev/null &
 disown 2>/dev/null
 
-echo "STREAM_DISPLAY=$OUTPUT ($1). Sunshine restarted."
+if [ "$OUTPUT" = "HDMI-A-1" ]; then
+  echo "STREAM_DISPLAY=$OUTPUT ($1, $RES). Sunshine restarted."
+else
+  echo "STREAM_DISPLAY=$OUTPUT ($1). Sunshine restarted."
+fi
