@@ -210,9 +210,9 @@ GAME_PID_WRAPPER=$!
 
 ## -- Steam BP Toggle --
 if [ "$TARGET_ENV" = "tv_env" ]; then
-  STEAMBP_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address')
+  STEAMBP_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address' | head -n1)
   if [ -n "$STEAMBP_ADDR" ]; then
-    hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$STEAMBP_ADDR\" })" >/dev/null 2>&1
+    hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"unset\", window = \"address:$STEAMBP_ADDR\" })" >/dev/null 2>&1
   fi
 fi
 
@@ -236,6 +236,12 @@ FS_GRACE=3       # settle time for a window that looks like the game proper
 LOADER_GRACE=20  # settle time for loader-shaped windows; most are gone by then
 FS_HOLD=3        # consecutive fullscreen polls before a window counts as the real game
 
+# Fullscreen but not solitary means full composition every frame; kick it once it has held that way.
+declare -A SOLITARY_KICKS=()
+MAX_SOLITARY_KICKS=3
+SOL_HOLD=8
+SOL_BLOCKED_COUNT=0
+
 # Proton tags launchers as "proton-game" too, so shape is the only tell: a loader is both untitled and a fraction of the screen.
 LOADER_AREA_PCT=20
 case "$TARGET_ENV" in
@@ -247,6 +253,7 @@ MIN_GAME_AREA=$(( ${MON_AREA:-0} * LOADER_AREA_PCT / 100 ))
 log "Loader filter: monitor $TARGET_MONITOR area ${MON_AREA:-0}, windows under ${MIN_GAME_AREA}px or untitled treated as loaders"
 TICK=0
 SELECTED_ADDR=""
+DIAG_LAST=""
 FS_STABLE=0
 REAL_WINDOW_SEEN="false"
 LOADER_GAP_HANDLED="false"
@@ -264,21 +271,22 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
       | { addr: .address, ws: .workspace.id, fs: .fullscreen,
           area: (((.size[0] // 0) * (.size[1] // 0))),
           loaderish: (if ((.title // "") == "" and (((.size[0] // 0) * (.size[1] // 0)) < $minarea)) then 1 else 0 end),
+          fsclient: (.fullscreenClient // "-"), handler: (.fullscreenHandler // "-"),
           rank: (if (.xdgTag == "proton-game" or .contentType == "game") then 0
                  elif (.class == $appid) then 1
                  else 2 end) } ]
-    | sort_by(.loaderish, .rank, -.area) | .[] | "\(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs)"')
+    | sort_by(.loaderish, .rank, -.area) | .[] | "\(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs) \(.fsclient) \(.handler)"')
 
   # A written-off loader scores last, so the real window wins as soon as it maps.
   CLIENT_INFO=""
   BEST_SCORE=99
-  while read -r C_RANK C_LOADERISH C_ADDR C_WS C_FS; do
+  while read -r C_RANK C_LOADERISH C_ADDR C_WS C_FS C_FSCLIENT C_HANDLER; do
     [ -z "$C_ADDR" ] && continue
     SCORE=$((C_RANK + C_LOADERISH * 5))
     [ "${FS_GIVEUP[$C_ADDR]}" = "1" ] && SCORE=$((SCORE + 10))
     if [ "$SCORE" -lt "$BEST_SCORE" ]; then
       BEST_SCORE=$SCORE
-      CLIENT_INFO="$C_ADDR $C_WS $C_FS $C_RANK $C_LOADERISH"
+      CLIENT_INFO="$C_ADDR $C_WS $C_FS $C_RANK $C_LOADERISH $C_FSCLIENT $C_HANDLER"
     fi
   done <<<"$CANDIDATES"
 
@@ -287,13 +295,23 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
     WINDOW_SEEN="true"
     MISSING_COUNT=0 # Reset missing counter
 
-    read CURRENT_ADDR CURRENT_WS CURRENT_FS CURRENT_RANK CURRENT_LOADERISH <<<"$CLIENT_INFO"
+    read CURRENT_ADDR CURRENT_WS CURRENT_FS CURRENT_RANK CURRENT_LOADERISH CURRENT_FSCLIENT CURRENT_HANDLER <<<"$CLIENT_INFO"
+
+    read MON_SOLITARY MON_SOLBLOCK MON_SCANOUT MON_SCANBLOCK MON_TEAR MON_VRR MON_FMT <<<"$(hyprctl monitors -j | jq -r --arg m "$TARGET_MONITOR" '.[] | select(.name==$m) | "\(.solitary) \((.solitaryBlockedBy // ["null"])|join(",")) \(.directScanoutTo) \((.directScanoutBlockedBy // ["null"])|join(",")) \(.activelyTearing) \(.vrr) \(.currentFormat)"')"
+
+    # Logged only on change: catches what actually flips when a judder clears.
+    DIAG="fs=$CURRENT_FS fsClient=$CURRENT_FSCLIENT handler=$CURRENT_HANDLER solitary=$MON_SOLITARY solitaryBlockedBy=$MON_SOLBLOCK scanoutTo=$MON_SCANOUT scanoutBlockedBy=$MON_SCANBLOCK tearing=$MON_TEAR vrr=$MON_VRR fmt=$MON_FMT"
+    if [ "$DIAG" != "$DIAG_LAST" ]; then
+      log "STATE: $DIAG"
+      DIAG_LAST="$DIAG"
+    fi
 
     if [ "$CURRENT_ADDR" != "$SELECTED_ADDR" ]; then
       WIN_DESC=$(hyprctl clients -j | jq -r --arg a "$CURRENT_ADDR" '.[] | select(.address == $a) | "class=\(.class) title=\(.title) size=\(.size[0])x\(.size[1]) xdgTag=\(.xdgTag) contentType=\(.contentType) floating=\(.floating)"')
       log "Enforcement target: $CURRENT_ADDR (rank $CURRENT_RANK, loaderish $CURRENT_LOADERISH) $WIN_DESC"
       SELECTED_ADDR="$CURRENT_ADDR"
       FS_STABLE=0
+      SOL_BLOCKED_COUNT=0
       LOG_ONCE=true
     fi
     [ -z "${FIRST_SEEN[$CURRENT_ADDR]}" ] && FIRST_SEEN[$CURRENT_ADDR]=$TICK
@@ -351,6 +369,24 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
           REAL_WINDOW_SEEN="true"
           log "Window $CURRENT_ADDR held fullscreen for ${FS_HOLD}s. Treating as the real game window."
         fi
+      fi
+
+      # A self-fullscreened game is never promoted to solitary, so every frame stays composited and the camera judders.
+      # Dropping fullscreen lets the enforcement branch re-apply it next tick, which is what fixes it by hand.
+      if [ "$MON_SOLITARY" = "0" ] || [ "$MON_SOLITARY" = "null" ]; then
+        ((SOL_BLOCKED_COUNT++))
+      else
+        SOL_BLOCKED_COUNT=0
+      fi
+      # First kick fires the moment the game settles, while loading screens hide the flip.
+      # Later ones wait SOL_HOLD so a transient overlay can't cause a flash mid-game.
+      KICKED=${SOLITARY_KICKS[$CURRENT_ADDR]:-0}
+      if [ "$REAL_WINDOW_SEEN" = "true" ] && [ "$SOL_BLOCKED_COUNT" -ge 1 ] && [ "$KICKED" -lt "$MAX_SOLITARY_KICKS" ] &&
+        { [ "$KICKED" -eq 0 ] || [ "$SOL_BLOCKED_COUNT" -ge "$SOL_HOLD" ]; }; then
+        SOLITARY_KICKS[$CURRENT_ADDR]=$((KICKED + 1))
+        log "Fullscreen but not solitary ($MON_SOLBLOCK) for ${SOL_BLOCKED_COUNT}s. Kicking fullscreen off so it re-applies (${SOLITARY_KICKS[$CURRENT_ADDR]}/$MAX_SOLITARY_KICKS)..."
+        SOL_BLOCKED_COUNT=0
+        hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"unset\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
       fi
     fi
 
@@ -414,9 +450,17 @@ chmod -w ~/.config/waybar/config.jsonc
 ~/scripts/waybar_refresh.sh
 
 if [ "$TARGET_ENV" = "tv_env" ] && [ -n "$STEAMBP_ADDR" ]; then
-  log "Restoring steam big picture to exclusive fullscreen..."
   sleep 3
-  hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"toggle\", window = \"address:$STEAMBP_ADDR\" })" >/dev/null 2>&1
+  # Re-resolve: the launch-time address is long stale, and dispatching to a dead one silently no-ops.
+  BP_ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title == "Steam Big Picture Mode") | .address' | head -n1)
+  if [ -n "$BP_ADDR" ]; then
+    log "Restoring steam big picture to exclusive fullscreen ($BP_ADDR)..."
+    hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"set\", mode = \"fullscreen\", window = \"address:$BP_ADDR\" })" >/dev/null 2>&1
+    sleep 1
+    log "BP state: $(hyprctl clients -j | jq -r --arg a "$BP_ADDR" '.[] | select(.address==$a) | "fs=\(.fullscreen) fsClient=\(.fullscreenClient)"') $(hyprctl monitors -j | jq -r --arg m "$TARGET_MONITOR" '.[] | select(.name==$m) | "solitary=\(.solitary) solitaryBlockedBy=\((.solitaryBlockedBy // ["null"])|join(","))"')"
+  else
+    log "Big Picture window is gone; nothing to restore."
+  fi
 fi
 
 # 4. Fix waybar dock
