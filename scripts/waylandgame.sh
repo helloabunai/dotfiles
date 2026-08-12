@@ -297,7 +297,11 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
 
     read CURRENT_ADDR CURRENT_WS CURRENT_FS CURRENT_RANK CURRENT_LOADERISH CURRENT_FSCLIENT CURRENT_HANDLER <<<"$CLIENT_INFO"
 
-    read MON_SOLITARY MON_SOLBLOCK MON_SCANOUT MON_SCANBLOCK MON_TEAR MON_VRR MON_FMT <<<"$(hyprctl monitors -j | jq -r --arg m "$TARGET_MONITOR" '.[] | select(.name==$m) | "\(.solitary) \((.solitaryBlockedBy // ["null"])|join(",")) \(.directScanoutTo) \((.directScanoutBlockedBy // ["null"])|join(",")) \(.activelyTearing) \(.vrr) \(.currentFormat)"')"
+    read MON_SOLITARY MON_SOLBLOCK MON_SCANOUT MON_SCANBLOCK MON_TEAR MON_VRR MON_FMT MON_ACTIVE_WS <<<"$(hyprctl monitors -j | jq -r --arg m "$TARGET_MONITOR" '.[] | select(.name==$m) | "\(.solitary) \((.solitaryBlockedBy // ["null"])|join(",")) \(.directScanoutTo) \((.directScanoutBlockedBy // ["null"])|join(",")) \(.activelyTearing) \(.vrr) \(.currentFormat) \(.activeWorkspace.id)"')"
+
+    # Solitary and fullscreen only mean anything while the game's workspace is the one on screen.
+    WIN_VISIBLE=0
+    [ "$CURRENT_WS" = "$MON_ACTIVE_WS" ] && WIN_VISIBLE=1
 
     # Logged only on change: catches what actually flips when a judder clears.
     DIAG="fs=$CURRENT_FS fsClient=$CURRENT_FSCLIENT handler=$CURRENT_HANDLER solitary=$MON_SOLITARY solitaryBlockedBy=$MON_SOLBLOCK scanoutTo=$MON_SCANOUT scanoutBlockedBy=$MON_SCANBLOCK tearing=$MON_TEAR vrr=$MON_VRR fmt=$MON_FMT"
@@ -348,7 +352,9 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
       # Loader-shaped windows get a long leash, so short-lived ones are never touched at all.
       GRACE=$FS_GRACE
       [ "$CURRENT_LOADERISH" = "1" ] && GRACE=$LOADER_GRACE
-      if [ "${FS_GIVEUP[$CURRENT_ADDR]}" = "1" ]; then
+      if [ "$WIN_VISIBLE" != "1" ]; then
+        : # off screen; a fullscreen transition now just stalls a backgrounded game
+      elif [ "${FS_GIVEUP[$CURRENT_ADDR]}" = "1" ]; then
         : # written-off loader, leave it alone
       elif [ "$AGE" -lt "$GRACE" ]; then
         : # let it settle, it may fullscreen itself
@@ -373,7 +379,11 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
 
       # A self-fullscreened game is never promoted to solitary, so every frame stays composited and the camera judders.
       # Dropping fullscreen lets the enforcement branch re-apply it next tick, which is what fixes it by hand.
-      if [ "$MON_SOLITARY" = "0" ] || [ "$MON_SOLITARY" = "null" ]; then
+      if [ "$WIN_VISIBLE" != "1" ]; then
+        # Another workspace is on screen, so solitary describes that instead. Kicking here
+        # would mangle a backgrounded game's swapchain and stall it on return.
+        SOL_BLOCKED_COUNT=0
+      elif [ "$MON_SOLITARY" = "0" ] || [ "$MON_SOLITARY" = "null" ]; then
         ((SOL_BLOCKED_COUNT++))
       else
         SOL_BLOCKED_COUNT=0
