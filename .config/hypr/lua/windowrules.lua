@@ -4,6 +4,8 @@
 
 -- Main apps -> workspace placement
 hl.window_rule({ match = { class = "firefox" },         workspace = "1" })
+-- Opening a link elsewhere makes a tab, not a window, so only activation can bring us here. Global misc.focus_on_activate stays off.
+hl.window_rule({ match = { class = "^(firefox)$" },     focus_on_activate = true })
 hl.window_rule({ match = { class = "^([Ss]potify)$" },  workspace = "2" })
 hl.window_rule({ match = { class = "steam" },           workspace = "3" })
 hl.window_rule({ match = { xdg_tag = "proton-game" },   workspace = "6" })
