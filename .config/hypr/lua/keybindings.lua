@@ -30,23 +30,23 @@ hl.bind(mainMod .. " + CONTROL + H", hl.dsp.group.prev(), { description = "[Wind
 hl.bind(mainMod .. " + CONTROL + L", hl.dsp.group.next(), { description = "[Window Management|Group Navigation] change active group forwards" })
 
 -- ---- Change focus ----
-hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "l" }), { description = "[Window Management|Change focus] focus left" })
-hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "r" }), { description = "[Window Management|Change focus] focus right" })
-hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "u" }), { description = "[Window Management|Change focus] focus up" })
-hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "d" }), { description = "[Window Management|Change focus] focus down" })
 hl.bind("ALT + Tab",           hl.dsp.window.cycle_next(),        { description = "[Window Management|Change focus] Cycle focus" })
 
--- ---- Resize active window ----
-hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.resize({ x =  30, y =   0, relative = true }), { description = "[Window Management|Resize Active Window] resize window right", repeating = true })
-hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.resize({ x = -30, y =   0, relative = true }), { description = "[Window Management|Resize Active Window] resize window left",  repeating = true })
-hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.resize({ x =   0, y = -30, relative = true }), { description = "[Window Management|Resize Active Window] resize window up",    repeating = true })
-hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.resize({ x =   0, y =  30, relative = true }), { description = "[Window Management|Resize Active Window] resize window down",  repeating = true })
+-- ---- Switch workspace ----
+hl.bind(mainMod .. " + left",  hl.dsp.focus({ workspace = "r-1" }), { description = "[Workspaces|Navigation|Relative workspace] previous workspace" })
+hl.bind(mainMod .. " + right", hl.dsp.focus({ workspace = "r+1" }), { description = "[Workspaces|Navigation|Relative workspace] next workspace" })
 
--- ---- Move active window across workspace (floating delta, else tiled move) ----
-hl.bind(mainMod .. " + SHIFT + CONTROL + left",  moveActiveOrDirection(-30,   0, "l"), { description = "[Window Management|Move active window across workspace] Move active window to the left",  repeating = true })
-hl.bind(mainMod .. " + SHIFT + CONTROL + right", moveActiveOrDirection( 30,   0, "r"), { description = "[Window Management|Move active window across workspace] Move active window to the right", repeating = true })
-hl.bind(mainMod .. " + SHIFT + CONTROL + up",    moveActiveOrDirection(  0, -30, "u"), { description = "[Window Management|Move active window across workspace] Move active window up",            repeating = true })
-hl.bind(mainMod .. " + SHIFT + CONTROL + down",  moveActiveOrDirection(  0,  30, "d"), { description = "[Window Management|Move active window across workspace] Move active window down",          repeating = true })
+-- ---- Move active window within workspace (floating delta, else tiled move) ----
+hl.bind(mainMod .. " + SHIFT + left",  moveActiveOrDirection(-30,   0, "l"), { description = "[Window Management|Move active window] Move active window to the left",  repeating = true })
+hl.bind(mainMod .. " + SHIFT + right", moveActiveOrDirection( 30,   0, "r"), { description = "[Window Management|Move active window] Move active window to the right", repeating = true })
+hl.bind(mainMod .. " + SHIFT + up",    moveActiveOrDirection(  0, -30, "u"), { description = "[Window Management|Move active window] Move active window up",            repeating = true })
+hl.bind(mainMod .. " + SHIFT + down",  moveActiveOrDirection(  0,  30, "d"), { description = "[Window Management|Move active window] Move active window down",          repeating = true })
+
+-- ---- Resize active window ----
+hl.bind(mainMod .. " + SHIFT + CONTROL + right", hl.dsp.window.resize({ x =  30, y =   0, relative = true }), { description = "[Window Management|Resize Active Window] resize window right", repeating = true })
+hl.bind(mainMod .. " + SHIFT + CONTROL + left",  hl.dsp.window.resize({ x = -30, y =   0, relative = true }), { description = "[Window Management|Resize Active Window] resize window left",  repeating = true })
+hl.bind(mainMod .. " + SHIFT + CONTROL + up",    hl.dsp.window.resize({ x =   0, y = -30, relative = true }), { description = "[Window Management|Resize Active Window] resize window up",    repeating = true })
+hl.bind(mainMod .. " + SHIFT + CONTROL + down",  hl.dsp.window.resize({ x =   0, y =  30, relative = true }), { description = "[Window Management|Resize Active Window] resize window down",  repeating = true })
 
 -- ---- Move & Resize with mouse ----
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true, description = "[Window Management|Move & Resize with mouse] hold to move window" })
@@ -126,8 +126,6 @@ for i = 1, 10 do
     hl.bind(mainMod .. " + ALT + " .. key,         hl.dsp.window.move({ workspace = tostring(i), follow = false }), { description = "[Workspaces|Navigation|Move window silently] move to workspace " .. i .. " (silent)" })
 end
 
-hl.bind(mainMod .. " + CONTROL + right", hl.dsp.focus({ workspace = "r+1" }), { description = "[Workspaces|Navigation|Relative workspace] change active workspace forwards" })
-hl.bind(mainMod .. " + CONTROL + left",  hl.dsp.focus({ workspace = "r-1" }), { description = "[Workspaces|Navigation|Relative workspace] change active workspace backwards" })
 hl.bind(mainMod .. " + CONTROL + down",  hl.dsp.focus({ workspace = "empty" }), { description = "[Workspaces|Navigation] navigate to the nearest empty workspace" })
 
 -- Move focused window to a relative workspace
