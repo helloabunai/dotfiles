@@ -155,6 +155,12 @@ hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, render_unfocused     
 hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, idle_inhibit         = "always" })
 hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, workspace            = "4 silent" })
 hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, no_shortcuts_inhibit = true })
+-- also for wow 1.12 i.e. private servers
+hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^(World of Warcraft)$" }, render_unfocused     = true })
+hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^(World of Warcraft)$" }, idle_inhibit         = "always" })
+hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^(World of Warcraft)$" }, no_shortcuts_inhibit = true })
+hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^(World of Warcraft)$" }, keep_aspect_ratio    = true })
+hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^(World of Warcraft)$" }, no_follow_mouse = 1 })
 
 -- Battle.net tray window
 hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^$" }, opacity  = "0 override" })

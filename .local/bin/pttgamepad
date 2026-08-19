@@ -1,0 +1,50 @@
+#!/bin/bash
+# Controller PTT, same trick as pttfix but sourced from Steam Input.
+#
+# Bind a spare controller button to a GAMEPAD button (not a key) in Steam
+# Input's Gamepad action set. Steam emits it on its virtual X-Box pad, and this
+# turns that into the MOUSE8 that Discord's PTT keybind already listens for.
+# XTEST injection is what makes it work while Discord is unfocused under
+# XWayland.
+#
+# A gamepad button, not a keyboard key: Steam Input's keyboard bindings never
+# reach the kernel -- they are delivered inside Steam only, which is why one
+# bound to G typed in Steam Friends and nowhere else, and why evtest saw
+# nothing. Its gamepad bindings do produce real evdev events on the virtual pad.
+#
+# Dolphin is unaffected: it reads SDL/0/Steam Controller (the physical device),
+# so a button on the virtual pad is invisible to it.
+#
+# Exact name match matters: "Mouse passthrough" is a prefix of "Mouse
+# passthrough (absolute)", so a loose grep would match both.
+# :1, not pttfix's :0 -- :0 refuses connections here; XWayland is on :1.
+export DISPLAY=${DISPLAY:-:1}
+
+DEV_NAME=${PTT_DEV_NAME:-"Microsoft X-Box 360 pad 0"}
+PTT_KEY=${PTT_KEY:-BTN_THUMBR}
+WAIT_SECS=${PTT_WAIT:-0}
+
+find_dev() {
+  grep -lFx "$DEV_NAME" /sys/class/input/event*/device/name 2>/dev/null |
+    awk -F'/' '{print "/dev/input/"$5}' | head -n1
+}
+
+EVENT_PATH=$(find_dev)
+while [ -z "$EVENT_PATH" ] && [ "$WAIT_SECS" -gt 0 ]; do
+  sleep 1
+  WAIT_SECS=$((WAIT_SECS - 1))
+  EVENT_PATH=$(find_dev)
+done
+
+if [ -z "$EVENT_PATH" ]; then
+  echo "pttgamepad: no input device named '$DEV_NAME' (is Steam Input active?)" >&2
+  exit 1
+fi
+
+if [ ! -r "$EVENT_PATH" ]; then
+  echo "pttgamepad: $EVENT_PATH not readable (need input group)" >&2
+  exit 1
+fi
+
+echo "pttgamepad: $DEV_NAME -> $EVENT_PATH, $PTT_KEY -> MOUSE8"
+exec /usr/bin/push-to-talk "$EVENT_PATH" -k "$PTT_KEY" -n MOUSE8
