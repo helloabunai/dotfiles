@@ -43,3 +43,8 @@ alias fixwaybar="pkill kded6"
 alias gs="git status"
 alias gemini="agy"
 alias sunmirror="/usr/bin/zsh /home/alastairm/scripts/set_stream_display.sh mirror"
+# Local LLM
+alias ai-up="sudo systemctl start ollama"
+alias ai-down="sudo systemctl stop ollama"
+alias deepseek="ai-up && sleep 1 && ollama run deepseek-r1:14b"
+alias qwen="ai-up && sleep 1 && ollama run qwen2.5-coder:32b"
