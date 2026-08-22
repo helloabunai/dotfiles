@@ -13,9 +13,13 @@ ulimit -c 0 ## ignore core dumps
 
 LOGFILE="${HOME}/scripts/debug.log"
 : >"$LOGFILE"
+for _p in $(pgrep -f -- "-a $LOGFILE" 2>/dev/null); do
+  [ "$(cat /proc/$_p/comm 2>/dev/null)" = "tee" ] && kill "$_p" 2>/dev/null
+done
 # filter steam wayland overlay noise
 IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales"
-exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee --output-error=exit -a "$LOGFILE") 2>&1
+exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee -a "$LOGFILE") 2>&1
+LOGPIPE_PID=$!
 
 log() {
   echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] SCRIPTLOG::::::: $*\n"
@@ -254,6 +258,15 @@ if [ "$TARGET_ENV" = "tv_env" ]; then
   fi
 fi
 
+# Recursively collect all descendant PIDs of a given PID
+get_descendants() {
+  local children=$(pgrep -P "$1" 2>/dev/null)
+  for child in $children; do
+    echo "$child"
+    get_descendants "$child"
+  done
+}
+
 ## -- Window Detection & Enforcement Loop (FOREGROUND) --
 LOG_ONCE=true
 MAX_WAIT_INIT=120
@@ -314,6 +327,27 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
                  elif (.class == $appid) then 1
                  else 2 end) } ]
     | sort_by(.loaderish, .rank, -.area) | .[] | "\(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs) \(.fsclient) \(.handler)"')
+
+  # Native Linux games have no proton tag, no steam_app_* class etc
+  if [ -z "$CANDIDATES" ]; then
+    GAME_PIDS=" $(get_descendants "$GAME_PID_WRAPPER" 2>/dev/null | tr '\n' ' ') "
+    if [ "$GAME_PIDS" != "  " ]; then
+      CANDIDATES=$(hyprctl clients -j | jq -r --arg pids "$GAME_PIDS" --argjson minarea "${MIN_GAME_AREA:-0}" '
+        [ .[]
+          | . as $w
+          | select($w.pid != null and ($pids | contains(" " + ($w.pid|tostring) + " ")))
+          | { addr: .address, ws: .workspace.id, fs: .fullscreen,
+              area: (((.size[0] // 0) * (.size[1] // 0))),
+              loaderish: (if ((.title // "") == "" and (((.size[0] // 0) * (.size[1] // 0)) < $minarea)) then 1 else 0 end),
+              fsclient: (.fullscreenClient // "-"), handler: (.fullscreenHandler // "-"),
+              rank: 0 } ]
+        | sort_by(.loaderish, .rank, -.area) | .[] | "\(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs) \(.fsclient) \(.handler)"')
+      [ -n "$CANDIDATES" ] && [ "$PIDMATCH_LOGGED" != "true" ] && {
+        PIDMATCH_LOGGED=true
+        log "Window matched by process ancestry, not class (native game?)."
+      }
+    fi
+  fi
 
   # A written-off loader scores last, so the real window wins as soon as it maps.
   CLIENT_INFO=""
@@ -474,6 +508,7 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
       fi
       if [ "$MAX_WAIT" -le 0 ]; then
          log "Never saw game window after 120s. Exiting watcher."
+         NEVER_SAW_WINDOW=true
          break
       fi
     fi
@@ -522,14 +557,6 @@ fi
 pkill kded6
 
 ## -- Graceful Proton Shutdown Phase --
-# Recursively collect all descendant PIDs of a given PID
-get_descendants() {
-  local children=$(pgrep -P "$1" 2>/dev/null)
-  for child in $children; do
-    echo "$child"
-    get_descendants "$child"
-  done
-}
 
 if [ "$IS_LUTRIS" = true ]; then
   log "Lutris game: short grace period for wine cleanup..."
@@ -544,6 +571,10 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
   ((SHUTDOWN_TIMEOUT--))
   
   if [ "$SHUTDOWN_TIMEOUT" -le 0 ]; then
+    if [ "$NEVER_SAW_WINDOW" = "true" ]; then
+      log "Timeout reached, but the game window was never identified -- refusing to kill. Leaving the process tree running."
+      break
+    fi
     log "Process failed to close natively after timeout. Forcing termination..."
 
 
@@ -568,3 +599,9 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
 done
 
 log "Script finished cleanly."
+
+exec >/dev/null 2>&1
+if [ -n "$LOGPIPE_PID" ]; then
+  pkill -P "$LOGPIPE_PID" 2>/dev/null
+  kill "$LOGPIPE_PID" 2>/dev/null
+fi
