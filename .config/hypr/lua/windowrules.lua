@@ -51,6 +51,13 @@ hl.window_rule({
     idle_inhibit = "fullscreen",
 })
 
+-- Idle inhibit: all proton games/wayland/xwayland/native.
+hl.window_rule({ match = { class = "^(steam_app_\\d+)$" },      idle_inhibit = "fullscreen" })
+hl.window_rule({ match = { class = "^(steam_app_default)$" },  idle_inhibit = "fullscreen" })
+hl.window_rule({ match = { class = "^(.*\\.[eE][xX][eE])$" },    idle_inhibit = "fullscreen" })
+hl.window_rule({ match = { xdg_tag = "proton-game" },          idle_inhibit = "fullscreen" })
+hl.window_rule({ match = { content = "game" },                 idle_inhibit = "fullscreen" })
+
 -- Picture-in-picture
 hl.window_rule({
     match              = { title = "^([Pp]icture[-\\s]?[Ii]n[-\\s]?[Pp]icture)(.*)$" },
