@@ -51,6 +51,13 @@ hl.window_rule({
     idle_inhibit = "fullscreen",
 })
 
+-- Lock the cursor to games so it can't cross to DP-2
+hl.window_rule({ match = { class = "^(steam_app_\\d+)$", fullscreen = true },     confine_pointer = true })
+hl.window_rule({ match = { class = "^(steam_app_default)$", fullscreen = true }, confine_pointer = true })
+hl.window_rule({ match = { class = "^(.*\\.[eE][xX][eE])$", fullscreen = true },   confine_pointer = true })
+hl.window_rule({ match = { xdg_tag = "proton-game", fullscreen = true },         confine_pointer = true })
+hl.window_rule({ match = { content = "game", fullscreen = true },                confine_pointer = true })
+
 -- Idle inhibit: all proton games/wayland/xwayland/native.
 hl.window_rule({ match = { class = "^(steam_app_\\d+)$" },      idle_inhibit = "fullscreen" })
 hl.window_rule({ match = { class = "^(steam_app_default)$" },  idle_inhibit = "fullscreen" })
