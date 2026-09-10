@@ -3,7 +3,7 @@
 #
 # Bind a spare controller button to a GAMEPAD button (not a key) in Steam
 # Input's Gamepad action set. Steam emits it on its virtual X-Box pad, and this
-# turns that into the MOUSE8 that Discord's PTT keybind already listens for.
+# turns that into the MOUSE10 that Discord's PTT keybind already listens for.
 # XTEST injection is what makes it work while Discord is unfocused under
 # XWayland.
 #
@@ -46,5 +46,5 @@ if [ ! -r "$EVENT_PATH" ]; then
   exit 1
 fi
 
-echo "pttgamepad: $DEV_NAME -> $EVENT_PATH, $PTT_KEY -> MOUSE8"
-exec /usr/bin/push-to-talk "$EVENT_PATH" -k "$PTT_KEY" -n MOUSE8
+echo "pttgamepad: $DEV_NAME -> $EVENT_PATH, $PTT_KEY -> MOUSE10"
+exec /usr/bin/push-to-talk "$EVENT_PATH" -k "$PTT_KEY" -n MOUSE10

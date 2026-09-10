@@ -81,3 +81,7 @@ hl.config({
         enabled = true,
     },
 })
+
+-- pttfix's dedicated PTT device carries only the diverted mouse4; push-to-talk
+-- reads it from evdev, so Hyprland must not forward it to apps.
+hl.device({ name = "pttfix-ptt", enabled = false })

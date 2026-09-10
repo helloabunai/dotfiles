@@ -1,8 +1,51 @@
 #!/bin/bash
-# Find the keyd-emitted virtual pointer device dynamically, then read BTN_SIDE
-# (mouse4) from it and emit MOUSE8 via libxdo for Discord PTT (Discord PTT
-# keybind in app settings = Mouse 8). DISPLAY default :0 in case pttfix is
-# launched outside an X-aware shell (e.g. standalone test in Wayland kitty).
-export DISPLAY=${DISPLAY:-:0}
-EVENT_PATH=$(grep -l "keyd virtual pointer" /sys/class/input/event*/device/name | awk -F'/' '{print "/dev/input/"$5}')
-exec /usr/bin/push-to-talk "$EVENT_PATH" -k BTN_SIDE -n MOUSE8
+# Mouse4 for Discord PTT without any app seeing it as "browser back".
+#
+# Nothing downstream of keyd can suppress one pointer button: Hyprland mouse
+# binds fire but don't consume, keyd only remaps keyboard keys, and
+# push-to-talk is a passive reader with no grab option. So evsieve grabs the
+# keyd virtual pointer and splits it: mouse4 is diverted to a dedicated PTT
+# device, and the pointer device apps see has no mouse4 at all. The PTT device
+# is disabled in hypr/lua/config.lua so Hyprland won't forward it either;
+# push-to-talk reads it straight off evdev and injects the Discord PTT keybind.
+# XTEST only fakes buttons 1-10, so nothing above MOUSE10 is possible here.
+# Killing this script releases the grab and mouse4 is browser-back again.
+export DISPLAY=${DISPLAY:-:1}
+PTT_BUTTON=${PTT_BUTTON:-MOUSE10}
+RUNDIR=/run/user/$(id -u)
+PTT_LINK="$RUNDIR/pttfix-ptt"
+PTR_LINK="$RUNDIR/pttfix-pointer"
+
+SRC=$(grep -l "keyd virtual pointer" /sys/class/input/event*/device/name | awk -F'/' '{print "/dev/input/"$5}')
+if [ -z "$SRC" ]; then
+  echo "pttfix: no 'keyd virtual pointer' device found" >&2
+  exit 1
+fi
+
+EVSIEVE_PID=""
+PTT_PID=""
+cleanup() {
+  [ -n "$PTT_PID" ] && kill "$PTT_PID" 2>/dev/null
+  [ -n "$EVSIEVE_PID" ] && kill "$EVSIEVE_PID" 2>/dev/null
+  rm -f "$PTT_LINK" "$PTR_LINK"
+}
+trap cleanup EXIT INT TERM HUP
+
+evsieve --input "$SRC" grab domain=mouse \
+        --map btn:side@mouse btn:task@ptt \
+        --output @ptt create-link="$PTT_LINK" name="pttfix ptt" \
+        --output @mouse create-link="$PTR_LINK" name="pttfix pointer" &
+EVSIEVE_PID=$!
+
+for _ in $(seq 1 30); do
+  [ -e "$PTT_LINK" ] && [ -e "$PTR_LINK" ] && break
+  sleep 0.1
+done
+if [ ! -e "$PTT_LINK" ]; then
+  echo "pttfix: evsieve did not create $PTT_LINK" >&2
+  exit 1
+fi
+
+/usr/bin/push-to-talk "$PTT_LINK" -k BTN_TASK -n "$PTT_BUTTON" &
+PTT_PID=$!
+wait "$PTT_PID"
