@@ -9,12 +9,47 @@
 # is disabled in hypr/lua/config.lua so Hyprland won't forward it either;
 # push-to-talk reads it straight off evdev and injects the Discord PTT keybind.
 # XTEST only fakes buttons 1-10, so nothing above MOUSE10 is possible here.
-# Killing this script releases the grab and mouse4 is browser-back again.
+#
+# Usage: pttfix [stop]   -- backgrounded jobs don't get Ctrl+C, so use `pttfix stop`.
+set -u
+
 export DISPLAY=${DISPLAY:-:1}
 PTT_BUTTON=${PTT_BUTTON:-MOUSE10}
 RUNDIR=/run/user/$(id -u)
 PTT_LINK="$RUNDIR/pttfix-ptt"
 PTR_LINK="$RUNDIR/pttfix-pointer"
+PIDFILE="$RUNDIR/pttfix.pid"
+
+# Kill a stale instance and any evsieve still holding the grab, so a SIGKILLed
+# run can't leave mouse4 diverted forever.
+reap_stale() {
+  if [ -f "$PIDFILE" ]; then
+    local old
+    old=$(cat "$PIDFILE" 2>/dev/null)
+    if [ -n "${old:-}" ] && [ "$old" != "$$" ] && kill -0 "$old" 2>/dev/null; then
+      kill "$old" 2>/dev/null
+      for _ in $(seq 1 20); do kill -0 "$old" 2>/dev/null || break; sleep 0.1; done
+      kill -9 "$old" 2>/dev/null
+    fi
+    rm -f "$PIDFILE"
+  fi
+  for p in $(pgrep -x evsieve 2>/dev/null); do
+    grep -qa "pttfix-ptt" "/proc/$p/cmdline" 2>/dev/null && kill "$p" 2>/dev/null
+  done
+  sleep 0.3
+  for p in $(pgrep -x evsieve 2>/dev/null); do
+    grep -qa "pttfix-ptt" "/proc/$p/cmdline" 2>/dev/null && kill -9 "$p" 2>/dev/null
+  done
+  rm -f "$PTT_LINK" "$PTR_LINK"
+}
+
+if [ "${1:-}" = "stop" ]; then
+  reap_stale
+  echo "pttfix: stopped"
+  exit 0
+fi
+
+reap_stale
 
 SRC=$(grep -l "keyd virtual pointer" /sys/class/input/event*/device/name | awk -F'/' '{print "/dev/input/"$5}')
 if [ -z "$SRC" ]; then
@@ -26,10 +61,16 @@ EVSIEVE_PID=""
 PTT_PID=""
 cleanup() {
   [ -n "$PTT_PID" ] && kill "$PTT_PID" 2>/dev/null
-  [ -n "$EVSIEVE_PID" ] && kill "$EVSIEVE_PID" 2>/dev/null
-  rm -f "$PTT_LINK" "$PTR_LINK"
+  if [ -n "$EVSIEVE_PID" ]; then
+    kill "$EVSIEVE_PID" 2>/dev/null
+    for _ in $(seq 1 20); do kill -0 "$EVSIEVE_PID" 2>/dev/null || break; sleep 0.1; done
+    kill -9 "$EVSIEVE_PID" 2>/dev/null
+  fi
+  rm -f "$PTT_LINK" "$PTR_LINK" "$PIDFILE"
 }
-trap cleanup EXIT INT TERM HUP
+trap cleanup EXIT INT TERM HUP QUIT
+
+echo $$ > "$PIDFILE"
 
 evsieve --input "$SRC" grab domain=mouse \
         --map btn:side@mouse btn:task@ptt \
