@@ -290,6 +290,8 @@ FS_HOLD=3        # consecutive fullscreen polls before a window counts as the re
 # Fullscreen but not solitary means full composition every frame; kick it once it has held that way.
 declare -A SOLITARY_KICKS=()
 MAX_SOLITARY_KICKS=3
+MAX_SOLITARY_KICKS_TOTAL=5
+SOLITARY_KICKS_TOTAL=0
 SOL_HOLD=8
 SOL_BLOCKED_COUNT=0
 
@@ -470,10 +472,12 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
       # First kick fires the moment the game settles, while loading screens hide the flip.
       # Later ones wait SOL_HOLD so a transient overlay can't cause a flash mid-game.
       KICKED=${SOLITARY_KICKS[$CURRENT_ADDR]:-0}
-      if [ "$REAL_WINDOW_SEEN" = "true" ] && [ "$SOL_BLOCKED_COUNT" -ge 1 ] && [ "$KICKED" -lt "$MAX_SOLITARY_KICKS" ] &&
-        { [ "$KICKED" -eq 0 ] || [ "$SOL_BLOCKED_COUNT" -ge "$SOL_HOLD" ]; }; then
+      if [ "$REAL_WINDOW_SEEN" = "true" ] && [ "$SOL_BLOCKED_COUNT" -ge 1 ] &&
+        [ "$KICKED" -lt "$MAX_SOLITARY_KICKS" ] && [ "$SOLITARY_KICKS_TOTAL" -lt "$MAX_SOLITARY_KICKS_TOTAL" ] &&
+        { { [ "$KICKED" -eq 0 ] && [ "$SOLITARY_KICKS_TOTAL" -eq 0 ]; } || [ "$SOL_BLOCKED_COUNT" -ge "$SOL_HOLD" ]; }; then
         SOLITARY_KICKS[$CURRENT_ADDR]=$((KICKED + 1))
-        log "Fullscreen but not solitary ($MON_SOLBLOCK) for ${SOL_BLOCKED_COUNT}s. Kicking fullscreen off so it re-applies (${SOLITARY_KICKS[$CURRENT_ADDR]}/$MAX_SOLITARY_KICKS)..."
+        ((SOLITARY_KICKS_TOTAL++))
+        log "Fullscreen but not solitary ($MON_SOLBLOCK) for ${SOL_BLOCKED_COUNT}s. Kicking fullscreen off so it re-applies (${SOLITARY_KICKS[$CURRENT_ADDR]}/$MAX_SOLITARY_KICKS, total $SOLITARY_KICKS_TOTAL/$MAX_SOLITARY_KICKS_TOTAL)..."
         SOL_BLOCKED_COUNT=0
         hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"unset\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
       fi

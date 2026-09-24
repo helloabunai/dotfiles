@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=World of Warcraft: Forever
+Icon=lutris_world-of-warcraft-forever
+Exec=env LUTRIS_SKIP_INIT=1 lutris lutris:rungameid/10
+Categories=Game
+TryExec=lutris

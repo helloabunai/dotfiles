@@ -163,12 +163,14 @@ hl.window_rule({ match = { title = "^(Library)(.*)$" },             float = true
 hl.window_rule({ match = { class = "^(.*dialog.*)$" },              float = true })
 hl.window_rule({ match = { title = "^(.*dialog.*)$" },              float = true })
 
--- WoW background render workarounds
-hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, keep_aspect_ratio    = true })
-hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, render_unfocused     = true })
-hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, idle_inhibit         = "always" })
-hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, workspace            = "4 silent" })
-hl.window_rule({ match = { class = "^(wowclassic.exe)$" }, no_shortcuts_inhibit = true })
+-- WoW background render workarounds.
+-- wowclassic.exe (era/anniversary/hardcore), wowb.exe (Forever beta), wow.exe.
+local WOW_CLASS = "(?i)^(wow.*\\.exe)$"
+hl.window_rule({ match = { class = WOW_CLASS }, keep_aspect_ratio    = true })
+hl.window_rule({ match = { class = WOW_CLASS }, render_unfocused     = true })
+hl.window_rule({ match = { class = WOW_CLASS }, idle_inhibit         = "always" })
+hl.window_rule({ match = { class = WOW_CLASS }, workspace            = "4 silent" })
+hl.window_rule({ match = { class = WOW_CLASS }, no_shortcuts_inhibit = true })
 -- also for wow 1.12 i.e. private servers
 hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^(World of Warcraft)$" }, render_unfocused     = true })
 hl.window_rule({ match = { class = "^(steam_app_default)$", title = "^(World of Warcraft)$" }, idle_inhibit         = "always" })

@@ -1,0 +1,25 @@
+#!/bin/bash
+# WowUp-CF launcher.
+#
+# Dynamically resolve wowup version incase of self-auto-updates
+
+shopt -s nullglob
+DIRS=(/mnt/ssd "$HOME/Applications" "$HOME/.local/bin")
+
+CANDIDATES=()
+for d in "${DIRS[@]}"; do
+  CANDIDATES+=("$d"/WowUp-CF-*.AppImage "$d"/WowUp*.AppImage)
+done
+
+# Highest version wins, not newest mtime: a redownloaded older build would
+# otherwise shadow the current one.
+APPIMAGE=$(printf '%s\n' "${CANDIDATES[@]}" | sort -V | tail -n1)
+
+if [ -z "$APPIMAGE" ] || [ ! -x "$APPIMAGE" ]; then
+  MSG="No executable WowUp AppImage found in: ${DIRS[*]}"
+  command -v notify-send >/dev/null && notify-send -u critical "WowUp" "$MSG"
+  echo "$MSG" >&2
+  exit 1
+fi
+
+exec "$APPIMAGE" "$@"

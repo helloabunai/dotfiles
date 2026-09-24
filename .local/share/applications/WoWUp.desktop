@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=WowUp
+Comment=World of Warcraft Addon Manager
+Exec=/home/alastairm/.local/bin/wowup
+Icon=applications-games
+Terminal=false
+Type=Application
+Categories=Game;Utility;
