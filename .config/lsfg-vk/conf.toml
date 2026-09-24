@@ -1,0 +1,21 @@
+version = 2
+
+[global]
+# Shader library from the Lossless Scaling "lsfg-vk" Steam beta branch.
+# lossless scaling 2.0 wants lsfg-vk.dll specifically.
+dll = "/mnt/nvme/steamLibrary/steamapps/common/Lossless Scaling/lsfg-vk.dll"
+
+[[profile]]
+name = "wow"
+active_in = ["WowB.exe", "WowClassic.exe", "Wow.exe", "VanillaFixes.exe"]
+multiplier = 2
+flow_scale = 0.75
+performance_mode = true
+override_present_mode = false
+
+[[profile]]
+name = "vkcube"
+active_in = ["vkcube"]
+multiplier = 2
+flow_scale = 1.0
+performance_mode = false

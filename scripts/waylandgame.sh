@@ -16,8 +16,8 @@ LOGFILE="${HOME}/scripts/debug.log"
 for _p in $(pgrep -f -- "-a $LOGFILE" 2>/dev/null); do
   [ "$(cat /proc/$_p/comm 2>/dev/null)" = "tee" ] && kill "$_p" 2>/dev/null
 done
-# filter steam wayland overlay noise
-IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales"
+# filter steam wayland overlay noise/gamemode's empty status line
+IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales|^gamemodeauto: *\$"
 exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee -a "$LOGFILE") 2>&1
 LOGPIPE_PID=$!
 
@@ -47,6 +47,8 @@ echo "Target workspace: $TARGET_WKSPC"
 ##              a separate process. Its own window is never fullscreened, its
 ##              presence holds off the initial-window timeout, and 
 ##              it is closed once the game window exits.
+##   framegen-> keep MangoHud but drop its fps limit as it sits below lsfg-vk and
+##              re-times generated frames (judder)
 ## Keywords go before %command% and are shifted out.
 USE_WAYLAND=0
 USE_HDR=0
@@ -55,6 +57,7 @@ USE_LATENCY=0
 USE_DHEAP=0
 USE_SDL=1
 USE_LAUNCHER=0
+USE_FRAMEGEN=0
 while [ $# -gt 0 ]; do
   case "$1" in
     wayland) USE_WAYLAND=1; shift ;;
@@ -64,6 +67,7 @@ while [ $# -gt 0 ]; do
     dheap)   USE_DHEAP=1;   shift ;;
     nosdl)   USE_SDL=0;     shift ;;
     launcher) USE_LAUNCHER=1; shift ;;
+    framegen) USE_FRAMEGEN=1; shift ;;
     *) break ;;
   esac
 done
@@ -82,6 +86,8 @@ fi
 HUD_ENV_VARS=""
 if [ "$USE_HUD" -eq 1 ]; then
   HUD_ENV_VARS="MANGOHUD=1 MANGOHUD_CONFIGFILE=$HOME/.config/MangoHud/waylandgame.conf"
+  # read_cfg keeps the file; without it MANGOHUD_CONFIG replaces it
+  [ "$USE_FRAMEGEN" -eq 1 ] && HUD_ENV_VARS="$HUD_ENV_VARS MANGOHUD_CONFIG=read_cfg,fps_limit=0"
 fi
 
 ## --- Steam Input / SDL controller path ---
@@ -149,6 +155,7 @@ fi
 log "Selected Env Vars: $ACTIVE_ENV_VARS"
 log "Target: workspace $HYPR_WORKSPACE"
 [ "$USE_HUD" -eq 1 ] && log "MangoHud: enabled (fps only, top-left)" || log "MangoHud: disabled via 'nohud'"
+[ "$USE_FRAMEGEN" -eq 1 ] && log "MangoHud fps limit: OFF via 'framegen'"
 [ "$USE_LATENCY" -eq 1 ] && log "Low-latency: ENABLED via 'latency' ($LL_ENV_VARS)" || log "Low-latency: disabled (baseline run; pass 'latency' to enable)"
 [ "$USE_DHEAP" -eq 1 ] && log "vkd3d descriptor heap: ENABLED via 'dheap' ($DHEAP_ENV_VARS)" || log "vkd3d descriptor heap: disabled (VKD3D_CONFIG unset; pass 'dheap' to enable)"
 [ "$USE_SDL" -eq 1 ] && log "SDL controller path: enabled ($SDL_ENV_VARS)" || log "SDL controller path: DISABLED via 'nosdl' (PROTON_PREFER_SDL unset)"
