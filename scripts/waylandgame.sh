@@ -43,6 +43,10 @@ echo "Target workspace: $TARGET_WKSPC"
 ##   latency -> Reflex low-latency flags. Default off.
 ##   dheap   -> VKD3D_CONFIG=descriptor_heap. Unset entirely when absent.
 ##   nosdl   -> drop PROTON_PREFER_SDL. Default on. For Steam Controller testing.
+##   launcher-> %command% is a launcher (e.g. bnet) that spawns the real game in
+##              a separate process. Its own window is never fullscreened, its
+##              presence holds off the initial-window timeout, and 
+##              it is closed once the game window exits.
 ## Keywords go before %command% and are shifted out.
 USE_WAYLAND=0
 USE_HDR=0
@@ -50,6 +54,7 @@ USE_HUD=1
 USE_LATENCY=0
 USE_DHEAP=0
 USE_SDL=1
+USE_LAUNCHER=0
 while [ $# -gt 0 ]; do
   case "$1" in
     wayland) USE_WAYLAND=1; shift ;;
@@ -58,6 +63,7 @@ while [ $# -gt 0 ]; do
     latency) USE_LATENCY=1; shift ;;
     dheap)   USE_DHEAP=1;   shift ;;
     nosdl)   USE_SDL=0;     shift ;;
+    launcher) USE_LAUNCHER=1; shift ;;
     *) break ;;
   esac
 done
@@ -93,10 +99,10 @@ fi
 
 ## --- Environment Flag Definitions ---
 # PC Flags (Monitor)
-PC_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_USE_WOW64=1 PROTON_DISABLE_HIDRAW=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
+PC_ENV_VARS="PROTON_ENABLE_NGX_UPDATER=1 DXVK_NVAPI_DRS_NGX_DLSS_RR_OVERRIDE=on DXVK_NVAPI_DRS_NGX_DLSS_RR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_latest PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_USE_WOW64=1 PROTON_DISABLE_HIDRAW=1 WAYLANDDRV_PRIMARY_MONITOR=DP-1"
 
 # TV/HDR flags. DXVK_HDR=1 is what actually enables HDR.
-TV_ENV_VARS="PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_USE_WOW64=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
+TV_ENV_VARS="PROTON_ENABLE_NGX_UPDATER=1 DXVK_NVAPI_DRS_NGX_DLSS_RR_OVERRIDE=on DXVK_NVAPI_DRS_NGX_DLSS_RR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_latest PROTON_ENABLE_WAYLAND=$USE_WAYLAND PROTON_DLSS_UPGRADE=1 PROTON_USE_WOW64=1 PROTON_ENABLE_HDR=$USE_HDR DXVK_HDR=$USE_HDR PROTON_DISABLE_HIDRAW=1 WAYLANDDRV_PRIMARY_MONITOR=HDMI-A-1"
 
 ## --- Conditional Logic ---
 ## Map each streaming client to the virtual monitor it requires
@@ -146,6 +152,7 @@ log "Target: workspace $HYPR_WORKSPACE"
 [ "$USE_LATENCY" -eq 1 ] && log "Low-latency: ENABLED via 'latency' ($LL_ENV_VARS)" || log "Low-latency: disabled (baseline run; pass 'latency' to enable)"
 [ "$USE_DHEAP" -eq 1 ] && log "vkd3d descriptor heap: ENABLED via 'dheap' ($DHEAP_ENV_VARS)" || log "vkd3d descriptor heap: disabled (VKD3D_CONFIG unset; pass 'dheap' to enable)"
 [ "$USE_SDL" -eq 1 ] && log "SDL controller path: enabled ($SDL_ENV_VARS)" || log "SDL controller path: DISABLED via 'nosdl' (PROTON_PREFER_SDL unset)"
+[ "$USE_LAUNCHER" -eq 1 ] && log "Launcher mode: ENABLED via 'launcher' (launcher window never fullscreened; closed on game exit)" || log "Launcher mode: disabled (%command% treated as the game itself)"
 
 ## --- Steam App ID + Database Overrides ---
 DB_ENV_FLAGS=""
@@ -295,6 +302,15 @@ SOLITARY_KICKS_TOTAL=0
 SOL_HOLD=8
 SOL_BLOCKED_COUNT=0
 
+# Battle.net and friends match every game filter (wine class ends in .exe, proton
+# tags them too) but are NOT the game: fullscreening one just yanks the launcher
+# around, and the game it spawns is a sibling process, not a descendant. Name them
+# explicitly so they are never an enforcement target. Only consulted in launcher
+# mode, so a Steam title that happens to show a Battle.net window is unaffected.
+LAUNCHER_CLASS_RE=""
+[ "$USE_LAUNCHER" -eq 1 ] && LAUNCHER_CLASS_RE="^(battle\\.net\\.exe|agent\\.exe|blizzard.*\\.exe)$"
+LAUNCHER_PRESENT=0
+
 # Proton tags launchers as "proton-game" too, so shape is the only tell: a loader is both untitled and a fraction of the screen.
 LOADER_AREA_PCT=20
 case "$TARGET_ENV" in
@@ -313,37 +329,38 @@ LOADER_GAP_HANDLED="false"
 
 log "Window movement loop begins..."
 
-# Loop runs as long as the wrapper process is alive
-while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
+while kill -0 $GAME_PID_WRAPPER 2>/dev/null || [ "$REAL_WINDOW_SEEN" = "true" ] || [ "$LAUNCHER_PRESENT" = "1" ]; do
   ((TICK++))
 
   # Game-shaped beats loader-shaped; then self-declared game beats appid class beats bare .exe; larger area breaks ties.
-  CANDIDATES=$(hyprctl clients -j | jq -r --arg appid "steam_app_$STEAM_APPID" --argjson minarea "${MIN_GAME_AREA:-0}" '
+  CANDIDATES=$(hyprctl clients -j | jq -r --arg appid "steam_app_$STEAM_APPID" --arg lre "$LAUNCHER_CLASS_RE" --argjson minarea "${MIN_GAME_AREA:-0}" '
     [ .[]
       | select(.xdgTag == "proton-game" or .contentType == "game" or .class == $appid or .class == "steam_app_default" or (.class != null and (.class | test("^steam_app_\\d+$"))) or (.class != null and (.class | test("\\.(exe|EXE)$"))))
       | { addr: .address, ws: .workspace.id, fs: .fullscreen,
           area: (((.size[0] // 0) * (.size[1] // 0))),
           loaderish: (if ((.title // "") == "" and (((.size[0] // 0) * (.size[1] // 0)) < $minarea)) then 1 else 0 end),
+          launcherish: (if ($lre != "" and ((.class // "") | test($lre; "i"))) then 1 else 0 end),
           fsclient: (.fullscreenClient // "-"), handler: (.fullscreenHandler // "-"),
           rank: (if (.xdgTag == "proton-game" or .contentType == "game") then 0
                  elif (.class == $appid) then 1
                  else 2 end) } ]
-    | sort_by(.loaderish, .rank, -.area) | .[] | "\(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs) \(.fsclient) \(.handler)"')
+    | sort_by(.launcherish, .loaderish, .rank, -.area) | .[] | "\(.launcherish) \(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs) \(.fsclient) \(.handler)"')
 
   # Native Linux games have no proton tag, no steam_app_* class etc
   if [ -z "$CANDIDATES" ]; then
     GAME_PIDS=" $(get_descendants "$GAME_PID_WRAPPER" 2>/dev/null | tr '\n' ' ') "
     if [ "$GAME_PIDS" != "  " ]; then
-      CANDIDATES=$(hyprctl clients -j | jq -r --arg pids "$GAME_PIDS" --argjson minarea "${MIN_GAME_AREA:-0}" '
+      CANDIDATES=$(hyprctl clients -j | jq -r --arg pids "$GAME_PIDS" --arg lre "$LAUNCHER_CLASS_RE" --argjson minarea "${MIN_GAME_AREA:-0}" '
         [ .[]
           | . as $w
           | select($w.pid != null and ($pids | contains(" " + ($w.pid|tostring) + " ")))
           | { addr: .address, ws: .workspace.id, fs: .fullscreen,
               area: (((.size[0] // 0) * (.size[1] // 0))),
               loaderish: (if ((.title // "") == "" and (((.size[0] // 0) * (.size[1] // 0)) < $minarea)) then 1 else 0 end),
+              launcherish: (if ($lre != "" and ((.class // "") | test($lre; "i"))) then 1 else 0 end),
               fsclient: (.fullscreenClient // "-"), handler: (.fullscreenHandler // "-"),
               rank: 0 } ]
-        | sort_by(.loaderish, .rank, -.area) | .[] | "\(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs) \(.fsclient) \(.handler)"')
+        | sort_by(.launcherish, .loaderish, .rank, -.area) | .[] | "\(.launcherish) \(.rank) \(.loaderish) \(.addr) \(.ws) \(.fs) \(.fsclient) \(.handler)"')
       [ -n "$CANDIDATES" ] && [ "$PIDMATCH_LOGGED" != "true" ] && {
         PIDMATCH_LOGGED=true
         log "Window matched by process ancestry, not class (native game?)."
@@ -354,8 +371,20 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
   # A written-off loader scores last, so the real window wins as soon as it maps.
   CLIENT_INFO=""
   BEST_SCORE=99
-  while read -r C_RANK C_LOADERISH C_ADDR C_WS C_FS C_FSCLIENT C_HANDLER; do
+  LAUNCHER_PRESENT=0
+  LAUNCHER_ADDR=""
+  LAUNCHER_WS=""
+  while read -r C_LAUNCHER C_RANK C_LOADERISH C_ADDR C_WS C_FS C_FSCLIENT C_HANDLER; do
     [ -z "$C_ADDR" ] && continue
+    # Launcher window: note that it is up (it holds off the initial-window
+    # timeout below) but never let it become the enforcement target.
+    if [ "$C_LAUNCHER" = "1" ]; then
+      LAUNCHER_PRESENT=1
+      LAUNCHER_ADDR="$C_ADDR"
+      LAUNCHER_WS="$C_WS"
+      [ "$LAUNCHER_LOGGED" = "true" ] || { LAUNCHER_LOGGED=true; log "Launcher window $C_ADDR detected; excluded from fullscreen enforcement."; }
+      continue
+    fi
     SCORE=$((C_RANK + C_LOADERISH * 5))
     [ "${FS_GIVEUP[$C_ADDR]}" = "1" ] && SCORE=$((SCORE + 10))
     if [ "$SCORE" -lt "$BEST_SCORE" ]; then
@@ -363,6 +392,14 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
       CLIENT_INFO="$C_ADDR $C_WS $C_FS $C_RANK $C_LOADERISH $C_FSCLIENT $C_HANDLER"
     fi
   done <<<"$CANDIDATES"
+
+  # Exempt from fullscreen is not exempt from placement. The proton-game rule in
+  # windowrules.lua sends every wayland-backed game window to ws 6 (the TV), so a
+  # launcher left alone opens on the wrong monitor and the game follows it there.
+  if [ "$LAUNCHER_PRESENT" = "1" ] && [ -n "$LAUNCHER_ADDR" ] && [ "$LAUNCHER_WS" != "$HYPR_WORKSPACE" ]; then
+    log "Enforcing: moving launcher $LAUNCHER_ADDR from WS $LAUNCHER_WS to WS $HYPR_WORKSPACE"
+    hyprctl dispatch "hl.dsp.window.move({ workspace = \"$HYPR_WORKSPACE\", window = \"address:$LAUNCHER_ADDR\" })" >/dev/null 2>&1
+  fi
 
   if [ -n "$CLIENT_INFO" ]; then
     # Window is active!
@@ -504,6 +541,13 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
         # Break to restore desktop; don't kill process yet.
         break
       fi
+    elif [ "$LAUNCHER_PRESENT" = "1" ]; then
+      # Sitting in the launcher: login queue, patching, or Play simply not clicked
+      # yet. Spending the initial-window budget here would abandon the watch before
+      # the game ever starts, so hold it and just say so now and then.
+      if ((TICK % 30 == 0)); then
+        log "Launcher up, no game window yet. Holding the ${MAX_WAIT}s initial budget."
+      fi
     else
       # Waiting for very first window
       ((MAX_WAIT--))
@@ -568,6 +612,13 @@ if [ "$IS_LUTRIS" = true ]; then
 else
   log "Desktop restored. Waiting for Steam to cleanly sync cloud saves and natively close Proton..."
   SHUTDOWN_TIMEOUT=60
+fi
+if [ "$USE_LAUNCHER" -eq 1 ] && [ "$NEVER_SAW_WINDOW" != "true" ]; then
+  log "Launcher mode: game window gone, closing the launcher tree..."
+  for pid in $(get_descendants $GAME_PID_WRAPPER 2>/dev/null | tac); do
+    kill -TERM "$pid" 2>/dev/null
+  done
+  kill -TERM $GAME_PID_WRAPPER 2>/dev/null
 fi
 
 while kill -0 $GAME_PID_WRAPPER 2>/dev/null; do
