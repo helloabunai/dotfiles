@@ -23,12 +23,12 @@ HDMI-A-1)
   TARGET_WKSPC=6
   RES=$(stream_res)
   echo "Enabling monitor: HDMI-A-1 (Shield/TV/Mac, HDR, $RES)"
-  hyprctl eval "hl.monitor({ $(hdmi1_mode_args "$RES") })"
+  ARGS=$(hdmi1_mode_args "$RES")
   ;;
 HDMI-A-2)
   TARGET_WKSPC=7
   echo "Enabling monitor: HDMI-A-2 (Steam Deck)"
-  hyprctl eval 'hl.monitor({ output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, vrr = 1, disabled = false })'
+  ARGS='output = "HDMI-A-2", mode = "1280x800@90", position = "7840x0", scale = 1, vrr = 1, disabled = false'
   ;;
 *)
   echo "STREAM_DISPLAY not set or invalid ('$STREAM_DISPLAY'). Run set_stream_display.sh."
@@ -36,16 +36,12 @@ HDMI-A-2)
   ;;
 esac
 
-# Wait for Hyprland to actually online the monitor before placing windows.
-tries=30
-while [ $tries -gt 0 ]; do
-  if hyprctl -j monitors all | jq -e --arg n "$STREAM_DISPLAY" \
-      '.[] | select(.name == $n and .disabled == false and .width > 0)' >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.2
-  tries=$((tries - 1))
-done
+# Wait for Hyprland + the kernel to actually online the monitor before placing windows.
+if ! enable_output "$STREAM_DISPLAY" "$ARGS" && ! drm_lit "$STREAM_DISPLAY"; then
+  # non-zero aborts the Sunshine launch instead of streaming DP-1
+  echo "ERROR: kernel rejected the $STREAM_DISPLAY modeset."
+  exit 1
+fi
 
 # Steam Big Picture: launch tenfoot if Steam isn't running, otherwise raise BP.
 if ! pgrep -x steam >/dev/null; then

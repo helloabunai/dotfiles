@@ -31,46 +31,19 @@ hires | lowres) ;;
   ;;
 esac
 
-# drm_lit <name>: kernel is scanning out <name> (Hyprland still lists it enabled
-# after a failed modeset). Virtual outputs with no DRM connector pass.
-drm_lit() {
-  local f
-  for f in /sys/class/drm/card*-"$1"/enabled; do
-    [ -e "$f" ] || return 0
-    [ "$(cat "$f")" = enabled ] && return 0
-  done
-  return 1
-}
-
 # enable_monitor <name> <hl.monitor arg string>
 # Enables a Hyprland output and waits (~6s) for it to actually be online.
 enable_monitor() {
-  local name="$1" args="$2" attempt tries
-  for attempt in 1 2; do
-    echo "Enabling monitor: $name"
-    hyprctl eval "hl.monitor({ $args })"
-    tries=30
-    while [ $tries -gt 0 ]; do
-      if hyprctl -j monitors all | jq -e --arg n "$name" \
-          '.[] | select(.name == $n and .disabled == false and .width > 0)' >/dev/null 2>&1 \
-          && drm_lit "$name"; then
-        echo "  $name is online."
-        return 0
-      fi
-      sleep 0.2
-      tries=$((tries - 1))
-    done
-    # identical args break under hypr, so disable to force a fresh modeset
-    if [ $attempt = 1 ]; then
-      hyprctl eval "hl.monitor({ output = \"$name\", disabled = true })"
-      sleep 1
-    fi
-  done
+  local name="$1"
+  echo "Enabling monitor: $name"
+  if enable_output "$name" "$2"; then
+    echo "  $name is online."
+    return 0
+  fi
   if ! drm_lit "$name"; then
     # Sunshine would silently capture DP-1 instead oopz
     echo "  ERROR: kernel rejected the $name modeset; not restarting Sunshine."
     echo "  See: hyprctl rollinglog | grep -i 'failed to commit'"
-    hyprctl eval "hl.monitor({ output = \"$name\", disabled = true })"
     exit 1
   fi
   echo "  WARNING: $name did not come online in time; continuing anyway."

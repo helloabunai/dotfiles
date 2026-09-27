@@ -1,0 +1,3 @@
+# INSTALL: sudo install -Dm440 stream-reprobe /etc/sudoers.d/stream-reprobe
+# lets lib/stream_modes.sh drm_reprobe reset the forced-EDID HDMI-A-1 connector
+alastairm ALL=(root) NOPASSWD: /usr/bin/tee /sys/class/drm/card1-HDMI-A-1/status
