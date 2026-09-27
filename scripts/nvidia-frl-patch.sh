@@ -29,12 +29,14 @@
 # the rebuilt module must be MOK-signed or it won't load.
 # ---------------------------------------------------------------------------
 set -euo pipefail
+trap 'echo "FRL: FAILED at line $LINENO (rc=$?)" >&2' ERR
 
 PATCH=/etc/nvidia-patches/nvidia-frl-1186.patch
 [ -r "$PATCH" ] || { echo "FRL: patch $PATCH not found; skipping"; exit 0; }
 
 # Version of the DKMS 'nvidia' module supplied by nvidia-open-dkms
-ver=$(dkms status 2>/dev/null | awk -F'[/,]' '/^nvidia\//{print $2; exit}')
+# (awk must read all input: an early exit SIGPIPEs dkms and pipefail kills the script)
+ver=$(dkms status 2>/dev/null | awk -F'[/,]' '/^nvidia\// && !v {v=$2} END {print v}')
 [ -n "${ver:-}" ] || { echo "FRL: nvidia dkms module not registered; skipping"; exit 0; }
 
 src="/usr/src/nvidia-$ver"
@@ -48,11 +50,24 @@ else
   patch -d "$src" -p1 <"$PATCH"        # fails loud if it no longer applies
 fi
 
+# double check applied
+if ! grep -q "EDID-declared" "$src/kernel-open/nvidia-modeset/nvidia-modeset-linux.c" \
+   || ! grep -q "forceFrlRate == NVKMS_FRL_RATE_FORCE_NONE" "$src/src/nvidia-modeset/src/nvkms-hdmi.c"; then
+  echo "FRL: ERROR — patch sentinels missing after apply (nvidia likely refactored these files)." >&2
+  echo "FRL: re-derive the patch against $src before trusting force_frl_rate." >&2
+  exit 1
+fi
+
 echo "FRL: rebuilding nvidia/$ver via dkms"
 # 'install --force' only re-installs a cached build; force an actual recompile
 # from the freshly-patched source first, or the unpatched cached .ko is reused.
-dkms build --force "nvidia/$ver"
-dkms install --force "nvidia/$ver"
+# Every kernel with headers, not uname -r: a linux upgrade in the same boot sesh
+# leaves the running kernel without headers.
+for kdir in /usr/lib/modules/*/build; do
+  k=$(basename "$(dirname "$kdir")")
+  dkms build --force "nvidia/$ver" -k "$k"
+  dkms install --force "nvidia/$ver" -k "$k"
+done
 
 # nvidia is in the early-KMS initramfs MODULES list, so the patched modules must
 # be re-baked into the initramfs. The stock mkinitcpio hook runs during the
