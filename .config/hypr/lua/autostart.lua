@@ -45,7 +45,8 @@ hl.on("hyprland.start", function()
 
     -- From userprefs.conf
     hl.exec_cmd("firefox")
-    hl.exec_cmd("steam")
+    -- extest: route Steam Input XTEST mouse via uinput (steam-for-linux#13185)
+    hl.exec_cmd("LD_PRELOAD=/usr/lib32/libextest.so steam")
     hl.exec_cmd("sh -c 'sleep 10 && steam steam://open/friends'")
     hl.exec_cmd("spotify")
     hl.exec_cmd("sunshine")
