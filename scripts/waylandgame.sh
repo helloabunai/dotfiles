@@ -36,13 +36,13 @@ echo "Connected from: $TARGET_CLIENT"
 echo "Target workspace: $TARGET_WKSPC"
 
 ## --- Parse keyword args (presence = enabled) ---
-## Usage: waylandgame.sh [wayland] [hdr] [nohud] [latency] [dheap] %command%
+## Usage: waylandgame.sh [wayland] [hdr] [nohud] [latency] [dheap] [sdl] %command%
 ##   wayland -> PROTON_ENABLE_WAYLAND=1. Steam Input needs X11.
 ##   hdr     -> HDR on. Requires wayland.
 ##   nohud   -> skip MangoHud. Default on.
 ##   latency -> Reflex low-latency flags. Default off.
 ##   dheap   -> VKD3D_CONFIG=descriptor_heap. Unset entirely when absent.
-##   nosdl   -> drop PROTON_PREFER_SDL. Default on. For Steam Controller testing.
+##   sdl     -> PROTON_PREFER_SDL=1. def to off (xtest.so fixes steam controller on hypr but keeping incase)
 ##   launcher-> %command% is a launcher (e.g. bnet) that spawns the real game in
 ##              a separate process. Its own window is never fullscreened, its
 ##              presence holds off the initial-window timeout, and 
@@ -55,7 +55,7 @@ USE_HDR=0
 USE_HUD=1
 USE_LATENCY=0
 USE_DHEAP=0
-USE_SDL=1
+USE_SDL=0
 USE_LAUNCHER=0
 USE_FRAMEGEN=0
 while [ $# -gt 0 ]; do
@@ -65,7 +65,7 @@ while [ $# -gt 0 ]; do
     nohud)   USE_HUD=0;     shift ;;
     latency) USE_LATENCY=1; shift ;;
     dheap)   USE_DHEAP=1;   shift ;;
-    nosdl)   USE_SDL=0;     shift ;;
+    sdl)     USE_SDL=1;     shift ;;
     launcher) USE_LAUNCHER=1; shift ;;
     framegen) USE_FRAMEGEN=1; shift ;;
     *) break ;;
@@ -158,7 +158,7 @@ log "Target: workspace $HYPR_WORKSPACE"
 [ "$USE_FRAMEGEN" -eq 1 ] && log "MangoHud fps limit: OFF via 'framegen'"
 [ "$USE_LATENCY" -eq 1 ] && log "Low-latency: ENABLED via 'latency' ($LL_ENV_VARS)" || log "Low-latency: disabled (baseline run; pass 'latency' to enable)"
 [ "$USE_DHEAP" -eq 1 ] && log "vkd3d descriptor heap: ENABLED via 'dheap' ($DHEAP_ENV_VARS)" || log "vkd3d descriptor heap: disabled (VKD3D_CONFIG unset; pass 'dheap' to enable)"
-[ "$USE_SDL" -eq 1 ] && log "SDL controller path: enabled ($SDL_ENV_VARS)" || log "SDL controller path: DISABLED via 'nosdl' (PROTON_PREFER_SDL unset)"
+[ "$USE_SDL" -eq 1 ] && log "SDL controller path: enabled via 'sdl' ($SDL_ENV_VARS)" || log "SDL controller path: off (PROTON_PREFER_SDL unset)"
 [ "$USE_LAUNCHER" -eq 1 ] && log "Launcher mode: ENABLED via 'launcher' (launcher window never fullscreened; closed on game exit)" || log "Launcher mode: disabled (%command% treated as the game itself)"
 
 ## --- Steam App ID + Database Overrides ---
