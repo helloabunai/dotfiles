@@ -48,6 +48,11 @@
     "pc_env": "",
     "tv_env": "",
     "note": "Satisfactory"
-  }
+  },
+	"3669870": {
+		"pc_env": "WINEDLLOVERRIDES=version=n,b PROTON_NVIDIA_NVCUDA=1 PROTON_DLSS_UPGRADE=0",
+		"tv_env": "WINEDLLOVERRIDES=version=n,b PROTON_NVIDIA_NVCUDA=1 PROTON_DLSS_UPGRADE=0",
+		"note": "CONTROL Resonant (w/ dlssg_for_sm86)"
+	}
 }
 

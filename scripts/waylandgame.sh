@@ -17,7 +17,7 @@ for _p in $(pgrep -f -- "-a $LOGFILE" 2>/dev/null); do
   [ "$(cat /proc/$_p/comm 2>/dev/null)" = "tee" ] && kill "$_p" 2>/dev/null
 done
 # filter steam wayland overlay noise/gamemode's empty status line
-IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales|^gamemodeauto: *\$"
+IGNORE_PATTERN="wrong ELF class: ELFCLASS(32|64)|libgamemode.*cannot open shared object file|libextest\.so.*cannot be preloaded|skipping destruction \(fork without exec\?\)|pv-locale-gen:|setlocale .* No such file|Container startup will be faster if missing locales|^gamemodeauto: *\$"
 exec > >(grep --line-buffered -vE "$IGNORE_PATTERN" | tee -a "$LOGFILE") 2>&1
 LOGPIPE_PID=$!
 
