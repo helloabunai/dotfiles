@@ -195,6 +195,7 @@ hl.window_rule({ match = { class = "^(xembedsniproxy)$" }, no_focus = true })
 hl.window_rule({ match = { class = "^matrix_screensaver" },         no_initial_focus = true })
 hl.window_rule({ match = { class = "^(matrix_screensaver_DP-1)$" }, monitor = "DP-1" })
 hl.window_rule({ match = { class = "^(matrix_screensaver_DP-2)$" }, monitor = "DP-2" })
+hl.window_rule({ match = { class = "^matrix_screensaver" },         no_vrr = true })
 
 -- Layer rules
 hl.layer_rule({ name = "layerrule-1", match = { namespace = "waybar" },                     ignore_alpha = 0 })

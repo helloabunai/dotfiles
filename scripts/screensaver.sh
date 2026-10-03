@@ -77,6 +77,15 @@ case "$1" in
             sleep 0.1
         done
 
+        # no_vrr rule lands after map's fullscreen VRR check. set_prop re-runs it
+        for _ in $(seq 1 30); do
+            [ "$(hyprctl -j clients | jq '[.[] | select((.class | startswith("matrix_screensaver")) and .fullscreen != 0)] | length')" -ge "$EXPECTED_COUNT" ] && break
+            sleep 0.1
+        done
+        for m in DP-1 DP-2; do
+            hyprctl dispatch "hl.dsp.window.set_prop({ prop = \"no_vrr\", value = \"1\", window = \"class:^(matrix_screensaver_$m)\$\" })" >/dev/null
+        done
+
         # Count initial processes and get PIDs
         initial_count=$(pgrep -fc "matrix_screensaver")
         kitty_pids=$(pgrep -f "matrix_screensaver" | tr '\n' ' ')

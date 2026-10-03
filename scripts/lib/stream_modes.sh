@@ -6,8 +6,8 @@ STREAM_RES_FILE="$HOME/.config/scripts/streamres"
 
 hdmi1_mode_args() {
   case "$1" in
-  lowres) echo 'output = "HDMI-A-1", mode = "2560x1440@120", position = "4000x0", scale = 1, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false' ;;
-  *)      echo 'output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", vrr = 1, disabled = false' ;;
+  lowres) echo 'output = "HDMI-A-1", mode = "2560x1440@120", position = "4000x0", scale = 1, bitdepth = 10, cm = "hdr", sdr_min_luminance = 0.005, sdr_max_luminance = 230, vrr = 1, disabled = false' ;;
+  *)      echo 'output = "HDMI-A-1", mode = "3840x2160@120", position = "4000x0", scale = 1.5, bitdepth = 10, cm = "hdr", sdr_min_luminance = 0.005, sdr_max_luminance = 230, vrr = 1, disabled = false' ;;
   esac
 }
 
