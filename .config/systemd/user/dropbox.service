@@ -3,7 +3,7 @@ Description=Dropbox
 
 [Service]
 ExecStart=%h/.dropbox-dist/dropboxd
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 # No [Install]: graphical-session.target never activates here, so this is
