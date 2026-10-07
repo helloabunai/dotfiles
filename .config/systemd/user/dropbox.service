@@ -1,0 +1,10 @@
+[Unit]
+Description=Dropbox
+
+[Service]
+ExecStart=%h/.dropbox-dist/dropboxd
+Restart=always
+RestartSec=5
+
+# No [Install]: graphical-session.target never activates here, so this is
+# started from ~/.config/hypr/lua/autostart.lua after the session env import.

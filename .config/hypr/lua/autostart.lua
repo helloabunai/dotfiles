@@ -48,7 +48,7 @@ hl.on("hyprland.start", function()
     -- extest: route Steam Input XTEST mouse via uinput (steam-for-linux#13185)
     -- lib32 for the stable client, ~/.local/lib (self-built x86_64) for the steamrt64 beta
     hl.exec_cmd("LD_PRELOAD=/usr/lib32/libextest.so:$HOME/.local/lib/libextest.so steam -pipewire")
-    hl.exec_cmd("~/.dropbox-dist/dropboxd")
+    hl.exec_cmd("systemctl --user start dropbox")
     hl.exec_cmd("sh -c 'sleep 10 && steam steam://open/friends'")
     hl.exec_cmd("spotify")
     hl.exec_cmd("sunshine")
