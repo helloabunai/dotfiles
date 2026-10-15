@@ -2,6 +2,9 @@
 Description=Dropbox
 
 [Service]
+# Wait for waybar's tray (started late by remote_cleanup.sh) or Dropbox shows the App Indicator dialog
+ExecStartPre=/bin/sh -c 'until busctl --user status org.kde.StatusNotifierWatcher >/dev/null 2>&1; do sleep 0.5; done'
+TimeoutStartSec=60
 ExecStart=%h/.dropbox-dist/dropboxd
 Restart=on-failure
 RestartSec=5

@@ -9,12 +9,6 @@ for _ in $(seq 1 30); do
   sleep 0.5
 done
 
-for _ in $(seq 1 40); do
-  pgrep -x sunshine >/dev/null && break
-  sleep 0.25
-done
-sleep 3
-
 if [[ "$DP1_STATUS" == "connected" || "$DP2_STATUS" == "connected" ]]; then
   hyprctl eval 'hl.monitor({ output = "HDMI-A-1", disabled = true })'
   hyprctl eval 'hl.monitor({ output = "HDMI-A-2", disabled = true })'
@@ -28,4 +22,8 @@ for _ in $(seq 1 60); do
   sleep 0.25
 done
 xembedsniproxy >/dev/null 2>&1 &
+disown
+
+# sunshine exits if its tray can't register with the watcher
+sunshine >/dev/null 2>&1 &
 disown

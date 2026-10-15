@@ -51,7 +51,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("systemctl --user start dropbox")
     hl.exec_cmd("sh -c 'sleep 10 && steam steam://open/friends'")
     hl.exec_cmd("spotify")
-    hl.exec_cmd("sunshine")
+    -- sunshine starts in remote_cleanup.sh, after waybar's tray is up
     hl.exec_cmd("tailscale")
     hl.exec_cmd("xmousepasteblock")
     hl.exec_cmd("discord --ozone-platform=x11")
