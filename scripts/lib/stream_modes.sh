@@ -4,6 +4,11 @@
 
 STREAM_RES_FILE="$HOME/.config/scripts/streamres"
 
+# ssh sessions have no signature so borrow the running instance's
+if [ -z "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+  export HYPRLAND_INSTANCE_SIGNATURE="$(hyprctl instances -j 2>/dev/null | jq -r '.[0].instance // empty')"
+fi
+
 hdmi1_mode_args() {
   case "$1" in
   lowres) echo 'output = "HDMI-A-1", mode = "2560x1440@120", position = "4000x0", scale = 1, bitdepth = 10, cm = "hdr", sdr_min_luminance = 0.005, sdr_max_luminance = 230, vrr = 1, disabled = false' ;;

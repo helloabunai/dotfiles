@@ -105,14 +105,16 @@ cp "$SUNSHINE_DIR/$CONF" "$SUNSHINE_DIR/sunshine.conf"
 # Let the display settle before Sunshine probes it.
 sleep 5
 
-# Relaunch Sunshine detached so it outlives this shell/terminal.
+# Spawned by Hyprland so it gets the session env (tray, wayland) even over ssh.
 if [ -z "$SUNSHINE_BIN" ]; then
   echo "ERROR: sunshine binary not found on PATH."
   exit 1
 fi
 echo "Launching Sunshine (STREAM_DISPLAY=$OUTPUT, config=$CONF)..."
-setsid "$SUNSHINE_BIN" >/dev/null 2>&1 < /dev/null &
-disown 2>/dev/null
+if ! hyprctl eval "hl.exec_cmd(\"$SUNSHINE_BIN\")" >/dev/null; then
+  echo "ERROR: couldn't reach Hyprland to launch Sunshine."
+  exit 1
+fi
 
 if [ "$OUTPUT" = "HDMI-A-1" ]; then
   echo "STREAM_DISPLAY=$OUTPUT ($1, $RES). Sunshine restarted."
