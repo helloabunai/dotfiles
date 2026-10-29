@@ -49,6 +49,7 @@ echo "Target workspace: $TARGET_WKSPC"
 ##              it is closed once the game window exits.
 ##   framegen-> keep MangoHud but drop its fps limit as it sits below lsfg-vk and
 ##              re-times generated frames (judder)
+##   m4key   -> mouse4 also presses Pause, so the game can bind it (still PTT, never browser-back)
 ## Keywords go before %command% and are shifted out.
 USE_WAYLAND=0
 USE_HDR=0
@@ -58,6 +59,7 @@ USE_DHEAP=0
 USE_SDL=0
 USE_LAUNCHER=0
 USE_FRAMEGEN=0
+USE_M4KEY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     wayland) USE_WAYLAND=1; shift ;;
@@ -66,7 +68,9 @@ while [ $# -gt 0 ]; do
     latency) USE_LATENCY=1; shift ;;
     dheap)   USE_DHEAP=1;   shift ;;
     sdl)     USE_SDL=1;     shift ;;
+    nosdl)   USE_SDL=0;     shift ;; # legacy no-op, still in old launch options
     launcher) USE_LAUNCHER=1; shift ;;
+    m4key)   USE_M4KEY=1;   shift ;;
     framegen) USE_FRAMEGEN=1; shift ;;
     *) break ;;
   esac
@@ -189,8 +193,10 @@ fi
 
 ## --- PC Specific: Discord PTT & Waybar ---
 if [ "$TARGET_ENV" = "pc_env" ]; then
-  log "Starting push-to-talk fix"
-  env -u LD_PRELOAD /home/alastairm/.local/bin/pttfix >>/tmp/pttfix.log 2>&1 &
+  M4KEY_ENV=""
+  [ "$USE_M4KEY" -eq 1 ] && M4KEY_ENV="PTTFIX_M4_KEY=pause"
+  log "Starting push-to-talk fix${M4KEY_ENV:+ (mouse4 also sends 'Pause' via 'm4key')}"
+  env -u LD_PRELOAD $M4KEY_ENV /home/alastairm/.local/bin/pttfix >>/tmp/pttfix.log 2>&1 &
   PTTFIX_PID=$!
   log "PTTFIX started with PID $PTTFIX_PID"
 
