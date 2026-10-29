@@ -1,0 +1,7 @@
+{
+    "tray": {
+        "spacing": 5,
+        // needs waybar-git or >=0.16 (not out yet)
+        "ignore-list": ["gpu-screen-recorder"]
+    }
+}

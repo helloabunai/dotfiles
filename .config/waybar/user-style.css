@@ -1,1 +1,12 @@
 /* User custom styles */
+
+/* waybar-git: custom modules moved from label.module to box.module*/
+window#waybar.top #custom-cliphist, window#waybar.top #custom-gpuinfo, window#waybar.top #custom-openvpn,
+window#waybar.top #custom-power, window#waybar.top #custom-spotify, window#waybar.top #custom-updates,
+window#waybar.bottom #custom-cliphist, window#waybar.bottom #custom-gpuinfo, window#waybar.bottom #custom-openvpn,
+window#waybar.bottom #custom-power, window#waybar.bottom #custom-spotify, window#waybar.bottom #custom-updates {
+    padding-left: 0.25em;
+    padding-right: 0.25em;
+    margin-left: 0.25em;
+    margin-right: 0.25em;
+}

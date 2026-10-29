@@ -1,5 +1,6 @@
 {
     "include": [
+        "/home/alastairm/.config/waybar/modules/tray.jsonc",
         "/home/alastairm/.local/share/waybar/modules/privacy.json",
         "/home/alastairm/.local/share/waybar/modules/wlr-taskbar#windows.json",
         "/home/alastairm/.local/share/waybar/modules/wlr-taskbar.json",
