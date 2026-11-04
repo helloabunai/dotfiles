@@ -306,6 +306,25 @@ MAX_FS_ATTEMPTS=4
 FS_GRACE=3       # settle time for a window that looks like the game proper
 LOADER_GRACE=20  # settle time for loader-shaped windows; most are gone by then
 FS_HOLD=3        # consecutive fullscreen polls before a window counts as the real game
+# Games that undo fullscreen themselves (e,g, The Finals) get hypr-only fullscreen
+declare -A FS_HYPR_ONLY=()
+
+# True when the window already covers its whole monitor, i.e. a game sizing itself, not a loader.
+spans_monitor() {
+  hyprctl -j clients | jq -e --arg a "$1" --argjson mons "$(hyprctl -j monitors)" '
+    .[] | select(.address == $a) as $w | $mons[] | select(.id == $w.monitor)
+    | (if .transform % 2 == 1 then [.height, .width] else [.width, .height] end) as $px
+    | ($w.at[0] - .x | fabs) <= 2 and ($w.at[1] - .y | fabs) <= 2
+      and ($w.size[0] - $px[0] / .scale | fabs) <= 2 and ($w.size[1] - $px[1] / .scale | fabs) <= 2' >/dev/null 2>&1
+}
+
+set_fullscreen() {
+  if [ "${FS_HYPR_ONLY[$1]}" = "1" ]; then
+    hyprctl dispatch "hl.dsp.window.fullscreen_state({ internal = 2, client = 0, action = \"set\", window = \"address:$1\" })" >/dev/null 2>&1
+  else
+    hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"set\", mode = \"fullscreen\", window = \"address:$1\" })" >/dev/null 2>&1
+  fi
+}
 
 # Fullscreen but not solitary means full composition every frame; kick it once it has held that way.
 declare -A SOLITARY_KICKS=()
@@ -477,7 +496,8 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null || [ "$REAL_WINDOW_SEEN" = "true" ] 
     fi
     
     # 3. Fullscreen Enforcement
-    if [ "$CURRENT_FS" == "0" ] || [ "$CURRENT_FS" == "false" ]; then
+    # fs=1 is maximized. some proton builds answer fullscreen with maximize which kept waybar
+    if [ "$CURRENT_FS" == "0" ] || [ "$CURRENT_FS" == "false" ] || [ "$CURRENT_FS" == "1" ]; then
       FS_STABLE=0
       AGE=$((TICK - ${FIRST_SEEN[$CURRENT_ADDR]}))
       # Loader-shaped windows get a long leash, so short-lived ones are never touched at all.
@@ -489,13 +509,19 @@ while kill -0 $GAME_PID_WRAPPER 2>/dev/null || [ "$REAL_WINDOW_SEEN" = "true" ] 
         : # written-off loader, leave it alone
       elif [ "$AGE" -lt "$GRACE" ]; then
         : # let it settle, it may fullscreen itself
+      elif [ "${FS_HYPR_ONLY[$CURRENT_ADDR]}" != "1" ] && [ "${FS_ATTEMPTS[$CURRENT_ADDR]:-0}" -ge 1 ] &&
+        { [ "$CURRENT_FS" == "1" ] || spans_monitor "$CURRENT_ADDR"; }; then
+        # game-sized and undid one attempt (game-self managed FS not loader)
+        FS_HYPR_ONLY[$CURRENT_ADDR]=1
+        FS_ATTEMPTS[$CURRENT_ADDR]=0
+        log "Window $CURRENT_ADDR is game-sized but undid fullscreen (fs=$CURRENT_FS). Switching to Hyprland-only fullscreen."
       elif [ "${FS_ATTEMPTS[$CURRENT_ADDR]:-0}" -ge "$MAX_FS_ATTEMPTS" ]; then
         FS_GIVEUP[$CURRENT_ADDR]=1
         log "Window $CURRENT_ADDR refused fullscreen ${MAX_FS_ATTEMPTS}x. Treating as loader; waiting for the real game window."
       else
         FS_ATTEMPTS[$CURRENT_ADDR]=$((${FS_ATTEMPTS[$CURRENT_ADDR]:-0} + 1))
         log "Enforcing: Window detected as Windowed. Setting fullscreen (${FS_ATTEMPTS[$CURRENT_ADDR]}/$MAX_FS_ATTEMPTS)..."
-        hyprctl dispatch "hl.dsp.window.fullscreen({ action = \"set\", mode = \"fullscreen\", window = \"address:$CURRENT_ADDR\" })" >/dev/null 2>&1
+        set_fullscreen "$CURRENT_ADDR"
       fi
     else
       ((FS_STABLE++))

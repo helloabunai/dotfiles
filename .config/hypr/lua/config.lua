@@ -14,6 +14,11 @@ hl.config({
         resize_on_border = true,
     },
 
+    -- 0.57 routes game-requested fullscreen through the layout handler (default true), which broke game fullscreen; use the 0.56 behaviour
+    binds = {
+        client_requested_fs_uses_layout_handler = false,
+    },
+
     decoration = {
         rounding = 5,
         -- Gruvbox Retro HyDE theme blur (hyprlang theme.conf isn't sourced under Lua)
